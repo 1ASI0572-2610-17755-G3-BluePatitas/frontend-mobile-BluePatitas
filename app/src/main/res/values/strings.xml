@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">BluePatitas</string>
+    <string name="demo_access_title">Demo access</string>
+    <string name="product_name">BluePatitas</string>
+    <string name="product_tagline">IoT shelter monitoring foundation</string>
+    <string name="development_mode_notice">Development mode – simulated session</string>
+    <string name="enter_as_administrator">Enter as administrator</string>
+    <string name="enter_as_veterinarian">Enter as veterinarian</string>
+    <string name="language_label">Language</string>
+    <string name="language_english">English</string>
+    <string name="language_spanish">Spanish (Latin America)</string>
+    <string name="role_shelter_admin">Shelter administrator</string>
+    <string name="role_veterinarian">Veterinarian</string>
+    <string name="sign_out">Sign out</string>
+    <string name="home">Home</string>
+    <string name="animals">Animals</string>
+    <string name="monitoring">Monitoring</string>
+    <string name="alerts">Alerts</string>
+    <string name="more">More</string>
+    <string name="profile">Profile</string>
+    <string name="home_placeholder_admin">Operational overview for the shelter administrator will be implemented later.</string>
+    <string name="animals_placeholder_admin">Animal management and records will be implemented in the Animals feature.</string>
+    <string name="monitoring_placeholder_admin">Zone sensors, GPS and camera placeholders will be connected in a later iteration.</string>
+    <string name="alerts_placeholder_admin">Critical shelter alerts will appear here once the alert workflow exists.</string>
+    <string name="more_placeholder_admin">Administrative settings, devices, users and veterinarians will be grouped later.</string>
+    <string name="home_placeholder_vet">Assigned animal overview for the veterinarian will be implemented later.</string>
+    <string name="animals_placeholder_vet">Assigned animals and clinical observations will be shown here later.</string>
+    <string name="monitoring_placeholder_vet">Environmental and location monitoring for assigned animals will be shown later.</string>
+    <string name="alerts_placeholder_vet">Relevant alerts for assigned animals will appear here later.</string>
+    <string name="profile_placeholder_vet">Veterinarian profile and preferences will be implemented later.</string>
+    <string name="current_role">Current role</string>
+    <string name="loading">Loading</string>
+</resources>

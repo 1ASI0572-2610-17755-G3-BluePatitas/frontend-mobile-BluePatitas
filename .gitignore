@@ -1,0 +1,44 @@
+.gradle/
+.idea/
+.kotlin/
+build/
+captures/
+local.properties
+
+**/build/
+*.iml
+
+*.apk
+*.aab
+*.ap_
+*.dex
+
+*.jks
+*.keystore
+*.p12
+*.pem
+
+hs_err_pid*
+replay_pid*
+
+# Visual Studio Code
+.vscode/
+
+# Native Android build
+.externalNativeBuild/
+.cxx/
+
+# Secrets and environment files
+.env
+.env.*
+secrets.properties
+keystore.properties
+firebase-adminsdk*.json
+service-account*.json
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -1,0 +1,137 @@
+package com.bluepatitas.mobile.core.navigation
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.bluepatitas.mobile.R
+import com.bluepatitas.mobile.core.designsystem.components.BluePatitasOutlinedButton
+import com.bluepatitas.mobile.core.designsystem.components.BluePatitasTopAppBar
+import com.bluepatitas.mobile.core.designsystem.components.RoleBadge
+import com.bluepatitas.mobile.core.designsystem.icons.NavigationDotIcon
+import com.bluepatitas.mobile.domain.model.AppSession
+
+@Composable
+fun RoleNavigationScaffold(
+    session: AppSession,
+    onSignOut: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    key(session.role) {
+        val navController = rememberNavController()
+        val destinations = destinationsFor(session.role)
+        val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+
+        Scaffold(
+            modifier = modifier.fillMaxSize(),
+            topBar = {
+                BluePatitasTopAppBar(title = stringResource(R.string.product_name))
+            },
+            bottomBar = {
+                NavigationBar {
+                    destinations.forEach { destination ->
+                        val selected = currentRoute == destination.route ||
+                            (currentRoute == null && destination == destinations.first())
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                navController.navigate(destination.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            icon = {
+                                NavigationDotIcon(
+                                    color = if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            },
+                            label = {
+                                Text(text = stringResource(destination.titleRes))
+                            }
+                        )
+                    }
+                }
+            }
+        ) { paddingValues ->
+            NavHost(
+                navController = navController,
+                startDestination = destinations.first().route,
+                modifier = Modifier.padding(paddingValues)
+            ) {
+                destinations.forEach { destination ->
+                    composable(destination.route) {
+                        PlaceholderDestinationScreen(
+                            title = stringResource(destination.titleRes),
+                            description = stringResource(destination.descriptionRes),
+                            session = session,
+                            onSignOut = onSignOut
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaceholderDestinationScreen(
+    title: String,
+    description: String,
+    session: AppSession,
+    onSignOut: () -> Unit,
+    modifier: Modifier = Modifier,
+    paddingValues: PaddingValues = PaddingValues(24.dp)
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(paddingValues),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = stringResource(R.string.current_role),
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.Gray
+        )
+        RoleBadge(role = session.role)
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Start
+        )
+        BluePatitasOutlinedButton(
+            text = stringResource(R.string.sign_out),
+            onClick = onSignOut
+        )
+    }
+}
