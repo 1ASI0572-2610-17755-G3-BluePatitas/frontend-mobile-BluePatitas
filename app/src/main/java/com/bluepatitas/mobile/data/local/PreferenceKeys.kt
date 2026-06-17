@@ -11,4 +11,13 @@ object PreferenceKeys {
     val ShelterId = stringPreferencesKey("session_shelter_id")
     val Language = stringPreferencesKey("language")
     val DemoMode = booleanPreferencesKey("demo_mode")
+    val ShelterCreated = booleanPreferencesKey("shelter_created")
+    val ShelterName = stringPreferencesKey("shelter_name")
+    val ShelterTaxId = stringPreferencesKey("shelter_tax_id")
+    val ShelterEmail = stringPreferencesKey("shelter_email")
+    val ShelterPhone = stringPreferencesKey("shelter_phone")
+    val ShelterAddress = stringPreferencesKey("shelter_address")
+    val ShelterReference = stringPreferencesKey("shelter_reference")
+    val ShelterDistrict = stringPreferencesKey("shelter_district")
+    val ShelterCity = stringPreferencesKey("shelter_city")
 }

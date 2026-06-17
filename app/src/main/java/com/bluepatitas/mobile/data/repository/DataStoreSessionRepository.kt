@@ -33,16 +33,21 @@ class DataStoreSessionRepository @Inject constructor(
         )
     }
 
-    override suspend fun startDemoSession(role: UserRole) {
-        val session = DemoAccounts.sessionFor(role)
+    override suspend fun startSession(session: AppSession) {
         dataStore.edit { preferences ->
             preferences[PreferenceKeys.UserId] = session.userId
             preferences[PreferenceKeys.DisplayName] = session.displayName
             preferences[PreferenceKeys.Email] = session.email
             preferences[PreferenceKeys.Role] = session.role.name
             session.shelterId?.let { preferences[PreferenceKeys.ShelterId] = it }
+                ?: preferences.remove(PreferenceKeys.ShelterId)
             preferences[PreferenceKeys.DemoMode] = true
         }
+    }
+
+    override suspend fun startDemoSession(role: UserRole) {
+        val session = DemoAccounts.sessionFor(role)
+        startSession(session)
     }
 
     override suspend fun clearSession() {

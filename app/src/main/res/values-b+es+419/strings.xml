@@ -1,14 +1,87 @@
 <resources>
     <string name="app_name">BluePatitas</string>
-    <string name="demo_access_title">Acceso demo</string>
     <string name="product_name">BluePatitas</string>
     <string name="product_tagline">Base de monitoreo IoT para refugios</string>
-    <string name="development_mode_notice">Modo desarrollo – sesión simulada</string>
+    <string name="splash_subtitle">Monitoreo IoT para refugios</string>
+
+    <string name="demo_access_title">Acceso demo</string>
+    <string name="development_mode_notice">Modo desarrollo - sesión simulada</string>
     <string name="enter_as_administrator">Entrar como administrador</string>
     <string name="enter_as_veterinarian">Entrar como veterinaria</string>
+    <string name="development_access">Acceso de desarrollo</string>
+
     <string name="language_label">Idioma</string>
     <string name="language_english">Inglés</string>
     <string name="language_spanish">Español (Latinoamérica)</string>
+
+    <string name="welcome_title">Cuidado inteligente para cada animal del refugio</string>
+    <string name="welcome_description">Monitorea animales, zonas, alertas y dispositivos IoT desde un solo lugar.</string>
+    <string name="benefit_realtime_monitoring">Monitoreo en tiempo real</string>
+    <string name="benefit_critical_alerts">Alertas críticas</string>
+    <string name="benefit_automated_feeding">Alimentación automatizada</string>
+    <string name="get_started">Comenzar</string>
+    <string name="already_have_account">Ya tengo cuenta</string>
+    <string name="accept_invitation">Aceptar invitación</string>
+
+    <string name="welcome_back">Bienvenido de nuevo</string>
+    <string name="login_subtitle">Inicia sesión para monitorear tu refugio.</string>
+    <string name="email_address">Correo electrónico</string>
+    <string name="password">Contraseña</string>
+    <string name="show_password">Mostrar contraseña</string>
+    <string name="hide_password">Ocultar contraseña</string>
+    <string name="forgot_password">¿Olvidaste tu contraseña?</string>
+    <string name="sign_in">Iniciar sesión</string>
+    <string name="create_admin_account">Crear cuenta de administrador</string>
+    <string name="invalid_credentials">Correo o contraseña inválidos.</string>
+
+    <string name="register_title">Crea tu cuenta de administrador</string>
+    <string name="register_subtitle">Empieza registrando a la persona responsable del refugio.</string>
+    <string name="first_name">Nombre</string>
+    <string name="last_name">Apellido</string>
+    <string name="phone_number">Teléfono</string>
+    <string name="confirm_password">Confirmar contraseña</string>
+    <string name="accept_terms">Acepto los Términos y la Política de Privacidad.</string>
+    <string name="create_account">Crear cuenta</string>
+    <string name="have_account_sign_in">¿Ya tienes cuenta? Inicia sesión</string>
+
+    <string name="forgot_password_title">Recuperar acceso</string>
+    <string name="forgot_password_subtitle">Ingresa tu correo para simular un enlace de recuperación.</string>
+    <string name="send_reset_link">Enviar enlace</string>
+    <string name="reset_success">Si el correo existe, se envió un enlace de recuperación.</string>
+    <string name="back_to_login">Volver a Login</string>
+
+    <string name="invitation_title">Aceptar invitación veterinaria</string>
+    <string name="invitation_subtitle">Usa la invitación enviada por el administrador del refugio.</string>
+    <string name="invitation_code">Código de invitación</string>
+    <string name="invalid_invitation_code">Código de invitación inválido.</string>
+    <string name="join_shelter">Unirme al refugio</string>
+
+    <string name="shelter_step_basic">Información básica</string>
+    <string name="shelter_step_location">Ubicación</string>
+    <string name="shelter_step_confirmation">Confirmación</string>
+    <string name="shelter_name">Nombre del refugio</string>
+    <string name="tax_id">RUC o identificador tributario</string>
+    <string name="institutional_email">Correo institucional</string>
+    <string name="contact_phone">Teléfono de contacto</string>
+    <string name="continue_action">Continuar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="main_address">Dirección principal</string>
+    <string name="reference">Referencia</string>
+    <string name="district_or_area">Distrito o zona</string>
+    <string name="city">Ciudad</string>
+    <string name="back">Volver</string>
+    <string name="create_shelter">Crear refugio</string>
+    <string name="shelter_created_title">Tu refugio ha sido creado con éxito</string>
+    <string name="go_to_shelter">Ir al refugio</string>
+    <string name="shelter_summary_address">%1$s, %2$s / %3$s</string>
+
+    <string name="required_field">Este campo es obligatorio.</string>
+    <string name="invalid_email">Ingresa un correo válido.</string>
+    <string name="password_required">La contraseña es obligatoria.</string>
+    <string name="password_too_short">La contraseña debe tener al menos 6 caracteres.</string>
+    <string name="passwords_do_not_match">Las contraseñas no coinciden.</string>
+    <string name="terms_required">Debes aceptar los Términos y la Política de Privacidad.</string>
+
     <string name="role_shelter_admin">Administrador de refugio</string>
     <string name="role_veterinarian">Veterinaria</string>
     <string name="sign_out">Cerrar sesión</string>
@@ -30,4 +103,8 @@
     <string name="profile_placeholder_vet">El perfil veterinario y preferencias se implementarán más adelante.</string>
     <string name="current_role">Rol actual</string>
     <string name="loading">Cargando</string>
+
+    <string name="bluepatitas_logo_description">Logo de BluePatitas</string>
+    <string name="shelter_iot_illustration_description">Ilustración IoT para refugio</string>
+    <string name="success_icon_description">Éxito</string>
 </resources>

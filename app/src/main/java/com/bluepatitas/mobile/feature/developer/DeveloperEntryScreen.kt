@@ -3,14 +3,12 @@ package com.bluepatitas.mobile.feature.developer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bluepatitas.mobile.R
 import com.bluepatitas.mobile.core.designsystem.components.BluePatitasOutlinedButton
+import com.bluepatitas.mobile.core.designsystem.components.BluePatitasLanguageSelector
 import com.bluepatitas.mobile.core.designsystem.components.BluePatitasPrimaryButton
 import com.bluepatitas.mobile.core.designsystem.icons.PawLogoIcon
 import com.bluepatitas.mobile.core.designsystem.theme.BlueDark
@@ -77,7 +76,7 @@ fun DeveloperEntryScreen(
             onClick = onEnterAsVeterinarian
         )
         Spacer(modifier = Modifier.height(24.dp))
-        LanguageSelector(
+        BluePatitasLanguageSelector(
             selectedLanguage = selectedLanguage,
             onLanguageSelected = onLanguageSelected
         )
@@ -89,39 +88,6 @@ fun DeveloperEntryScreen(
             style = MaterialTheme.typography.labelLarge,
             textAlign = TextAlign.Center
         )
-    }
-}
-
-@Composable
-private fun LanguageSelector(
-    selectedLanguage: AppLanguage,
-    onLanguageSelected: (AppLanguage) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.language_label),
-            style = MaterialTheme.typography.titleSmall
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = selectedLanguage == AppLanguage.ENGLISH,
-                onClick = { onLanguageSelected(AppLanguage.ENGLISH) },
-                label = { Text(text = stringResource(R.string.language_english)) }
-            )
-            FilterChip(
-                selected = selectedLanguage == AppLanguage.SPANISH_LATAM,
-                onClick = { onLanguageSelected(AppLanguage.SPANISH_LATAM) },
-                label = { Text(text = stringResource(R.string.language_spanish)) }
-            )
-        }
     }
 }
 

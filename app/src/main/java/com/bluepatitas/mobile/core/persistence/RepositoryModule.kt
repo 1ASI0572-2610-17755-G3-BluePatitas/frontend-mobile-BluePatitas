@@ -5,8 +5,12 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.bluepatitas.mobile.data.repository.DataStoreAppPreferencesRepository
 import com.bluepatitas.mobile.data.repository.DataStoreSessionRepository
+import com.bluepatitas.mobile.data.repository.DataStoreShelterRepository
+import com.bluepatitas.mobile.data.repository.FakeAuthRepository
 import com.bluepatitas.mobile.domain.repository.AppPreferencesRepository
+import com.bluepatitas.mobile.domain.repository.AuthRepository
 import com.bluepatitas.mobile.domain.repository.SessionRepository
+import com.bluepatitas.mobile.domain.repository.ShelterRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -29,6 +33,18 @@ abstract class RepositoryModule {
     abstract fun bindAppPreferencesRepository(
         repository: DataStoreAppPreferencesRepository
     ): AppPreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(
+        repository: FakeAuthRepository
+    ): AuthRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindShelterRepository(
+        repository: DataStoreShelterRepository
+    ): ShelterRepository
 
     companion object {
         @Provides

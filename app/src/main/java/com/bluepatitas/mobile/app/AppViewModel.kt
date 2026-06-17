@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.bluepatitas.mobile.domain.model.AppLanguage
 import com.bluepatitas.mobile.domain.model.AppPreferences
 import com.bluepatitas.mobile.domain.model.AppSession
+import com.bluepatitas.mobile.domain.model.ShelterProfile
 import com.bluepatitas.mobile.domain.model.UserRole
 import com.bluepatitas.mobile.domain.usecase.ClearSessionUseCase
 import com.bluepatitas.mobile.domain.usecase.ObserveAppPreferencesUseCase
 import com.bluepatitas.mobile.domain.usecase.ObserveSessionUseCase
+import com.bluepatitas.mobile.domain.usecase.ObserveShelterUseCase
 import com.bluepatitas.mobile.domain.usecase.SetLanguageUseCase
 import com.bluepatitas.mobile.domain.usecase.StartDemoSessionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +27,7 @@ data class BluePatitasAppUiState(
         language = AppLanguage.ENGLISH,
         isDemoModeEnabled = true
     ),
+    val shelter: ShelterProfile? = null,
     val isLoading: Boolean = true
 )
 
@@ -32,6 +35,7 @@ data class BluePatitasAppUiState(
 class AppViewModel @Inject constructor(
     observeSession: ObserveSessionUseCase,
     observeAppPreferences: ObserveAppPreferencesUseCase,
+    observeShelter: ObserveShelterUseCase,
     private val startDemoSession: StartDemoSessionUseCase,
     private val clearSession: ClearSessionUseCase,
     private val setLanguage: SetLanguageUseCase,
@@ -40,11 +44,13 @@ class AppViewModel @Inject constructor(
 
     val uiState: StateFlow<BluePatitasAppUiState> = combine(
         observeSession(),
-        observeAppPreferences()
-    ) { session, preferences ->
+        observeAppPreferences(),
+        observeShelter()
+    ) { session, preferences, shelter ->
         BluePatitasAppUiState(
             session = session,
             preferences = preferences,
+            shelter = shelter,
             isLoading = false
         )
     }.stateIn(

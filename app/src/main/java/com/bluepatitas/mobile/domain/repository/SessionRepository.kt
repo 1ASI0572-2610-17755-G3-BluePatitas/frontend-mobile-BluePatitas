@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface SessionRepository {
     val session: Flow<AppSession?>
+    suspend fun startSession(session: AppSession)
     suspend fun startDemoSession(role: UserRole)
     suspend fun clearSession()
 }
