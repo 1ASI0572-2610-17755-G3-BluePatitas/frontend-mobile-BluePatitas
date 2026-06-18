@@ -14,16 +14,34 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-    const val BackendBaseUrl = "http://10.0.2.2:8080/"
+    const val BackendBaseUrl = "https://backend-bluepatitas.onrender.com/"
 
     @Provides
     @Singleton
     fun provideOkHttpClient(
         bearerAuthInterceptor: BearerAuthInterceptor
-    ): OkHttpClient =
-        OkHttpClient.Builder()
+    ): OkHttpClient {
+        val loggingInterceptor = okhttp3.Interceptor { chain ->
+            val request = chain.request()
+            android.util.Log.d("BluePatitasNetwork", "Request: ${request.method} ${request.url}")
+            try {
+                val response = chain.proceed(request)
+                android.util.Log.d("BluePatitasNetwork", "Response: ${response.code} for ${request.url}")
+                if (!response.isSuccessful) {
+                    val errorBody = response.peekBody(Long.MAX_VALUE).string()
+                    android.util.Log.e("BluePatitasNetwork", "Response Error Body: $errorBody")
+                }
+                response
+            } catch (e: Exception) {
+                android.util.Log.e("BluePatitasNetwork", "Request failed: ${request.url}", e)
+                throw e
+            }
+        }
+        return OkHttpClient.Builder()
             .addInterceptor(bearerAuthInterceptor)
+            .addInterceptor(loggingInterceptor)
             .build()
+    }
 
     @Provides
     @Singleton

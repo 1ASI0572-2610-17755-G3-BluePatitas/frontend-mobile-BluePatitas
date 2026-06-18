@@ -33,24 +33,59 @@ class RealAuthRepository @Inject constructor(
                     password = credentials.password
                 )
             )
-            val session = user.toSession()
+
+            val roles = if (!user.role.isNullOrBlank()) {
+                listOf(user.role)
+            } else if (!user.roles.isNullOrEmpty()) {
+                user.roles
+            } else {
+                try {
+                    val userProfile = api.getUserById(user.id, "Bearer ${user.token}")
+                    userProfile.roles.orEmpty()
+                } catch (e: Exception) {
+                    Log.e("BluePatitasAuth", "Failed to fetch user roles for ID ${user.id}", e)
+                    emptyList()
+                }
+            }
+
+            val updatedUser = user.copy(
+                roles = roles,
+                role = roles.firstOrNull()
+            )
+
+            val session = updatedUser.toSession()
             sessionRepository.startSession(session)
             AuthResult.Success(session)
         } catch (exception: HttpException) {
-            if (exception.code() == 401 || exception.code() == 403) {
+            val code = exception.code()
+            val reason = when (code) {
+                401, 403 -> "401/403 = credenciales inválidas o usuario no existe en Render."
+                404 -> "404 = endpoint incorrecto."
+                500 -> "500 = error interno del backend."
+                else -> "HTTP $code = error de servidor."
+            }
+            Log.e("BluePatitasAuth", "Login failed: $reason", exception)
+            if (code == 401 || code == 403) {
                 AuthResult.InvalidCredentials
             } else {
-                AuthResult.ConnectionError(exception.message())
+                AuthResult.ConnectionError(reason)
             }
+        } catch (exception: com.google.gson.JsonSyntaxException) {
+            val reason = "JSON parse error = DTO incorrecto."
+            Log.e("BluePatitasAuth", "Login failed: $reason", exception)
+            AuthResult.ConnectionError(reason)
+        } catch (exception: java.net.SocketTimeoutException) {
+            val reason = "timeout = Render dormido o problema de red."
+            Log.e("BluePatitasAuth", "Login failed: $reason", exception)
+            AuthResult.ConnectionError(reason)
         } catch (exception: IOException) {
-            Log.w(
-                "BluePatitasNetwork",
-                "Login connection failed. Backend base URL: ${NetworkModule.BackendBaseUrl}",
-                exception
-            )
-            AuthResult.ConnectionError(exception.localizedMessage)
+            val reason = "timeout = Render dormido o problema de red."
+            Log.e("BluePatitasAuth", "Login failed: $reason", exception)
+            AuthResult.ConnectionError(reason)
         } catch (exception: IllegalArgumentException) {
-            AuthResult.ConnectionError(exception.localizedMessage)
+            val reason = "IllegalArgumentException: ${exception.message}"
+            Log.e("BluePatitasAuth", "Login failed: $reason", exception)
+            AuthResult.ConnectionError(reason)
         }
 
     override suspend fun registerAdmin(form: RegisterAdminForm): AuthResult =

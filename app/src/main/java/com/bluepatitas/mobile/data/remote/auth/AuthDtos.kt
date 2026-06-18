@@ -20,3 +20,13 @@ data class AuthenticatedUserDto(
     @SerializedName("onboardingCompleted")
     val onboardingCompleted: Boolean?
 )
+
+data class UserDto(
+    val id: Long,
+    val firstName: String?,
+    val lastName: String?,
+    val email: String,
+    val phoneNumber: String?,
+    val roles: List<String>?
+)
+
