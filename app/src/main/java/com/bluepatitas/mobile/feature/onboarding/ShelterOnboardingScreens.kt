@@ -90,7 +90,7 @@ fun ShelterBasicInfoScreen(
         topContent = { ShelterSteps(currentStep = 0) }
     ) {
         BluePatitasTextField(state.draft.name, { onFieldChange("name", it) }, stringResource(R.string.shelter_name), error = state.errors["name"]?.asString())
-        BluePatitasTextField(state.draft.taxId, { onFieldChange("taxId", it) }, stringResource(R.string.tax_id))
+        BluePatitasTextField(state.draft.taxId, { onFieldChange("taxId", it) }, stringResource(R.string.tax_id), error = state.errors["taxId"]?.asString(), keyboardType = KeyboardType.Number)
         BluePatitasTextField(state.draft.institutionalEmail, { onFieldChange("institutionalEmail", it) }, stringResource(R.string.institutional_email), error = state.errors["institutionalEmail"]?.asString(), keyboardType = KeyboardType.Email)
         BluePatitasTextField(state.draft.contactPhone, { onFieldChange("contactPhone", it) }, stringResource(R.string.contact_phone), error = state.errors["contactPhone"]?.asString(), keyboardType = KeyboardType.Phone)
         BluePatitasPrimaryButton(text = stringResource(R.string.continue_action), onClick = onContinue)
@@ -173,4 +173,6 @@ private fun AuthFieldErrorBridge.asString(): String =
     when (this) {
         AuthFieldErrorBridge.Required -> stringResource(R.string.required_field)
         AuthFieldErrorBridge.InvalidEmail -> stringResource(R.string.invalid_email)
+        AuthFieldErrorBridge.InvalidPhoneLength -> stringResource(R.string.phone_length_error)
+        AuthFieldErrorBridge.InvalidTaxIdLength -> stringResource(R.string.tax_id_length_error)
     }

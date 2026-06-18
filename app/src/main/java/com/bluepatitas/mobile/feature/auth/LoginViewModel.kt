@@ -35,7 +35,8 @@ enum class AuthFieldError {
     PasswordsDoNotMatch,
     TermsRequired,
     InvalidCredentials,
-    InvalidInvitationCode
+    InvalidInvitationCode,
+    InvalidPhoneLength
 }
 
 sealed interface LoginDestination {

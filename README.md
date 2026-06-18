@@ -40,7 +40,7 @@ Existing session:
 Splash -> role navigation
 ```
 
-If an administrator signs in before creating a shelter, the app routes to shelter onboarding:
+The demo administrator credentials represent an existing shelter administrator and go directly to administrator navigation. New administrator accounts created from Register still complete shelter onboarding:
 
 ```text
 Basic information -> Location -> Confirmation -> Administrator navigation
@@ -88,7 +88,9 @@ VET-BP-2026
 
 ## Mocked Behavior
 
-There is still no backend, Firebase, maps, camera streaming or real email delivery. `FakeAuthRepository` validates the demo credentials and invitation code. `DataStoreShelterRepository` stores the demo shelter locally. These implementations can be replaced by API-backed repositories without changing the Compose screens.
+There is still no backend, Firebase, maps, camera streaming or real email delivery. `FakeAuthRepository` validates the demo credentials and invitation code, while DataStore simulates persisted `role`, `shelterId` and shelter creation state. In the current mock flow, demo administrator credentials represent an existing shelter admin and navigate directly to the admin area. New admin accounts created from Register still complete the shelter onboarding flow. Once the Backend is available, this decision will be based on the login response fields such as role, shelterId and onboardingCompleted.
+
+Resumen en español: en el flujo mock actual, las credenciales demo de administrador representan a un administrador existente con refugio y entran directamente al área admin. Las cuentas nuevas creadas desde Register todavía completan el onboarding de refugio. Cuando exista Backend real, esta decisión vendrá desde la respuesta de login con campos como role, shelterId y onboardingCompleted.
 
 ## Project Structure
 

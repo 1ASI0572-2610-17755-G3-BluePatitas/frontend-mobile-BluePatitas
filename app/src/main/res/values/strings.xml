@@ -29,6 +29,8 @@
     <string name="password">Password</string>
     <string name="show_password">Show password</string>
     <string name="hide_password">Hide password</string>
+    <string name="show_password_short">Show</string>
+    <string name="hide_password_short">Hide</string>
     <string name="forgot_password">Forgot password?</string>
     <string name="sign_in">Sign in</string>
     <string name="create_admin_account">Create administrator account</string>
@@ -81,6 +83,8 @@
     <string name="password_too_short">Password must contain at least 6 characters.</string>
     <string name="passwords_do_not_match">Passwords do not match.</string>
     <string name="terms_required">You must accept the Terms and Privacy Policy.</string>
+    <string name="phone_length_error">Enter 7 to 15 digits.</string>
+    <string name="tax_id_length_error">Enter 8 to 11 digits.</string>
 
     <string name="role_shelter_admin">Shelter administrator</string>
     <string name="role_veterinarian">Veterinarian</string>

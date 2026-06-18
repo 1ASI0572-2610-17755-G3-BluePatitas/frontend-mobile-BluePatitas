@@ -51,7 +51,11 @@ Auth and onboarding routes are cleared from the back stack when the app enters a
 - `vet@bluepatitas.com` / `vet123`
 - `VET-BP-2026`
 
+In the current mock flow, demo administrator credentials represent an existing shelter admin. `FakeAuthRepository` seeds a demo shelter in DataStore before starting that session, so the admin demo goes directly to administrator navigation. New administrator accounts created from Register represent new users and still complete the shelter onboarding flow. Veterinarian login and invitation sessions go directly to veterinarian navigation.
+
 `DataStoreShelterRepository` persists whether the shelter was created and stores basic shelter data. Signing out clears session keys only; shelter data remains for the demo.
+
+Cuando exista Backend real, la decisión de navegar a Home o a onboarding debe venir desde la respuesta de login con campos como `role`, `shelterId` y `onboardingCompleted`, en lugar de sembrarse desde el repositorio mock.
 
 ## Role-Based Navigation
 

@@ -7,7 +7,7 @@
     <string name="demo_access_title">Acceso demo</string>
     <string name="development_mode_notice">Modo desarrollo - sesión simulada</string>
     <string name="enter_as_administrator">Entrar como administrador</string>
-    <string name="enter_as_veterinarian">Entrar como veterinaria</string>
+    <string name="enter_as_veterinarian">Entrar como veterinario</string>
     <string name="development_access">Acceso de desarrollo</string>
 
     <string name="language_label">Idioma</string>
@@ -29,6 +29,8 @@
     <string name="password">Contraseña</string>
     <string name="show_password">Mostrar contraseña</string>
     <string name="hide_password">Ocultar contraseña</string>
+    <string name="show_password_short">Ver</string>
+    <string name="hide_password_short">Ocultar</string>
     <string name="forgot_password">¿Olvidaste tu contraseña?</string>
     <string name="sign_in">Iniciar sesión</string>
     <string name="create_admin_account">Crear cuenta de administrador</string>
@@ -50,7 +52,7 @@
     <string name="reset_success">Si el correo existe, se envió un enlace de recuperación.</string>
     <string name="back_to_login">Volver a Login</string>
 
-    <string name="invitation_title">Aceptar invitación veterinaria</string>
+    <string name="invitation_title">Aceptar invitación para veterinario</string>
     <string name="invitation_subtitle">Usa la invitación enviada por el administrador del refugio.</string>
     <string name="invitation_code">Código de invitación</string>
     <string name="invalid_invitation_code">Código de invitación inválido.</string>
@@ -81,9 +83,11 @@
     <string name="password_too_short">La contraseña debe tener al menos 6 caracteres.</string>
     <string name="passwords_do_not_match">Las contraseñas no coinciden.</string>
     <string name="terms_required">Debes aceptar los Términos y la Política de Privacidad.</string>
+    <string name="phone_length_error">Ingresa entre 7 y 15 dígitos.</string>
+    <string name="tax_id_length_error">Ingresa entre 8 y 11 dígitos.</string>
 
     <string name="role_shelter_admin">Administrador de refugio</string>
-    <string name="role_veterinarian">Veterinaria</string>
+    <string name="role_veterinarian">Veterinario</string>
     <string name="sign_out">Cerrar sesión</string>
     <string name="home">Inicio</string>
     <string name="animals">Animales</string>
@@ -96,7 +100,7 @@
     <string name="monitoring_placeholder_admin">Los sensores de zona, GPS y placeholders de cámara se conectarán en una iteración posterior.</string>
     <string name="alerts_placeholder_admin">Las alertas críticas del refugio aparecerán aquí cuando exista el flujo de alertas.</string>
     <string name="more_placeholder_admin">Configuración administrativa, dispositivos, usuarios y veterinarios se agruparán más adelante.</string>
-    <string name="home_placeholder_vet">La vista de animales asignados para veterinaria se implementará más adelante.</string>
+    <string name="home_placeholder_vet">La vista de animales asignados para el veterinario se implementará más adelante.</string>
     <string name="animals_placeholder_vet">Los animales asignados y observaciones clínicas se mostrarán aquí más adelante.</string>
     <string name="monitoring_placeholder_vet">El monitoreo ambiental y de ubicación para animales asignados se mostrará después.</string>
     <string name="alerts_placeholder_vet">Las alertas relevantes para animales asignados aparecerán aquí después.</string>

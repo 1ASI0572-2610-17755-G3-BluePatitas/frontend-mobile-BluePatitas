@@ -2,6 +2,8 @@ package com.bluepatitas.mobile.feature.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bluepatitas.mobile.core.util.digitsOnly
+import com.bluepatitas.mobile.core.util.hasDigitLengthInRange
 import com.bluepatitas.mobile.core.util.isValidEmail
 import com.bluepatitas.mobile.domain.model.ShelterDraft
 import com.bluepatitas.mobile.domain.model.ShelterProfile
@@ -22,7 +24,9 @@ data class ShelterOnboardingUiState(
 
 enum class AuthFieldErrorBridge {
     Required,
-    InvalidEmail
+    InvalidEmail,
+    InvalidPhoneLength,
+    InvalidTaxIdLength
 }
 
 @HiltViewModel
@@ -36,16 +40,21 @@ class ShelterOnboardingViewModel @Inject constructor(
     fun updateField(field: String, value: String) {
         _uiState.update { state ->
             val draft = state.draft
+            val sanitizedValue = when (field) {
+                "taxId" -> digitsOnly(value, maxLength = 11)
+                "contactPhone" -> digitsOnly(value, maxLength = 15)
+                else -> value
+            }
             state.copy(
                 draft = when (field) {
-                    "name" -> draft.copy(name = value)
-                    "taxId" -> draft.copy(taxId = value)
-                    "institutionalEmail" -> draft.copy(institutionalEmail = value)
-                    "contactPhone" -> draft.copy(contactPhone = value)
-                    "address" -> draft.copy(address = value)
-                    "reference" -> draft.copy(reference = value)
-                    "district" -> draft.copy(district = value)
-                    "city" -> draft.copy(city = value)
+                    "name" -> draft.copy(name = sanitizedValue)
+                    "taxId" -> draft.copy(taxId = sanitizedValue)
+                    "institutionalEmail" -> draft.copy(institutionalEmail = sanitizedValue)
+                    "contactPhone" -> draft.copy(contactPhone = sanitizedValue)
+                    "address" -> draft.copy(address = sanitizedValue)
+                    "reference" -> draft.copy(reference = sanitizedValue)
+                    "district" -> draft.copy(district = sanitizedValue)
+                    "city" -> draft.copy(city = sanitizedValue)
                     else -> draft
                 },
                 errors = state.errors - field
@@ -58,10 +67,21 @@ class ShelterOnboardingViewModel @Inject constructor(
         val errors = buildMap {
             if (draft.name.isBlank()) put("name", AuthFieldErrorBridge.Required)
             when {
+                draft.taxId.isBlank() -> put("taxId", AuthFieldErrorBridge.Required)
+                !hasDigitLengthInRange(draft.taxId, minLength = 8, maxLength = 11) -> {
+                    put("taxId", AuthFieldErrorBridge.InvalidTaxIdLength)
+                }
+            }
+            when {
                 draft.institutionalEmail.isBlank() -> put("institutionalEmail", AuthFieldErrorBridge.Required)
                 !isValidEmail(draft.institutionalEmail) -> put("institutionalEmail", AuthFieldErrorBridge.InvalidEmail)
             }
-            if (draft.contactPhone.isBlank()) put("contactPhone", AuthFieldErrorBridge.Required)
+            when {
+                draft.contactPhone.isBlank() -> put("contactPhone", AuthFieldErrorBridge.Required)
+                !hasDigitLengthInRange(draft.contactPhone, minLength = 7, maxLength = 15) -> {
+                    put("contactPhone", AuthFieldErrorBridge.InvalidPhoneLength)
+                }
+            }
         }
         _uiState.update { it.copy(errors = errors) }
         if (errors.isEmpty()) {

@@ -401,4 +401,5 @@ fun AuthFieldError.asString(): String =
         AuthFieldError.TermsRequired -> stringResource(R.string.terms_required)
         AuthFieldError.InvalidCredentials -> stringResource(R.string.invalid_credentials)
         AuthFieldError.InvalidInvitationCode -> stringResource(R.string.invalid_invitation_code)
+        AuthFieldError.InvalidPhoneLength -> stringResource(R.string.phone_length_error)
     }

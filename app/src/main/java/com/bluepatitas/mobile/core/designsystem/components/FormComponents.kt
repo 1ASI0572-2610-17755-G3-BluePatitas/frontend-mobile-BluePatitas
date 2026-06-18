@@ -72,6 +72,11 @@ fun BluePatitasPasswordField(
     modifier: Modifier = Modifier,
     error: String? = null
 ) {
+    val visibilityDescription = if (visible) {
+        stringResource(R.string.hide_password)
+    } else {
+        stringResource(R.string.show_password)
+    }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -82,9 +87,18 @@ fun BluePatitasPasswordField(
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = {
-            IconButton(onClick = { onVisibilityChange(!visible) }) {
+            IconButton(
+                onClick = { onVisibilityChange(!visible) },
+                modifier = Modifier.semantics {
+                    contentDescription = visibilityDescription
+                }
+            ) {
                 Text(
-                    text = if (visible) stringResource(R.string.hide_password) else stringResource(R.string.show_password),
+                    text = if (visible) {
+                        stringResource(R.string.hide_password_short)
+                    } else {
+                        stringResource(R.string.show_password_short)
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     textAlign = TextAlign.Center
                 )
