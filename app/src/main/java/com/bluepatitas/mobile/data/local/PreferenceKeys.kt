@@ -5,10 +5,15 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 
 object PreferenceKeys {
     val UserId = stringPreferencesKey("session_user_id")
+    val FirstName = stringPreferencesKey("session_first_name")
+    val LastName = stringPreferencesKey("session_last_name")
     val DisplayName = stringPreferencesKey("session_display_name")
     val Email = stringPreferencesKey("session_email")
+    val Token = stringPreferencesKey("session_token")
     val Role = stringPreferencesKey("session_role")
     val ShelterId = stringPreferencesKey("session_shelter_id")
+    val ShelterSessionName = stringPreferencesKey("session_shelter_name")
+    val OnboardingCompleted = booleanPreferencesKey("session_onboarding_completed")
     val Language = stringPreferencesKey("language")
     val DemoMode = booleanPreferencesKey("demo_mode")
     val ShelterCreated = booleanPreferencesKey("shelter_created")

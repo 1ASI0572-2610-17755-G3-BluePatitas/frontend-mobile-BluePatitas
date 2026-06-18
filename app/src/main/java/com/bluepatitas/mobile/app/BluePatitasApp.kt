@@ -61,7 +61,11 @@ fun BluePatitasApp(
                             val session = uiState.session
                             val nextRoute = when (session?.role) {
                                 UserRole.SHELTER_ADMIN -> {
-                                    if (uiState.shelter == null) AppRoute.ShelterGraph.route else AppRoute.AdminMain.route
+                                    if (session.onboardingCompleted || uiState.shelter != null) {
+                                        AppRoute.AdminMain.route
+                                    } else {
+                                        AppRoute.ShelterGraph.route
+                                    }
                                 }
 
                                 UserRole.VETERINARIAN -> AppRoute.VeterinarianMain.route

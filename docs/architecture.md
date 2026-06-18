@@ -5,9 +5,9 @@ BluePatitas uses a pragmatic Domain-Driven Design organization with Clean Archit
 ## Layers
 
 - `domain`: business models, repository contracts and use cases.
-- `data`: mocked auth, DataStore-backed session/preferences/shelter persistence and future mapper location.
+- `data`: Retrofit/OkHttp APIs, DataStore-backed session/preferences/shelter persistence, mock flows that are still deferred, and mapper location.
 - `app`: root app state, locale handling and root navigation composition.
-- `feature`: Compose screens and ViewModels for developer access, auth and onboarding.
+- `feature`: Compose screens and ViewModels for developer access, auth, onboarding, main role navigation, monitoring and the read-only veterinary segment.
 - `core`: shared design system, navigation routes, persistence setup, notifications and utilities.
 
 The dependency direction remains inward. Presentation depends on use cases and domain models. Data implements domain repository contracts. Domain does not depend on Compose or Android UI.
@@ -20,7 +20,7 @@ The expected flow is:
 Composable -> ViewModel -> Use Case -> Repository
 ```
 
-Composables render state and send events. ViewModels expose StateFlow and run validation/orchestration. Use cases call repository contracts. Repositories hide DataStore and mock behavior today, and can hide REST or local database details later.
+Composables render state and send events. ViewModels expose StateFlow and run validation/orchestration. Use cases call repository contracts. Repositories hide DataStore, Retrofit/OkHttp and any remaining mock behavior.
 
 ## Root Navigation
 
@@ -39,23 +39,39 @@ admin-main
 veterinarian-main
 ```
 
-Splash waits for persisted DataStore state. If there is no session, it routes to Welcome. If there is a veterinarian session, it routes to veterinarian navigation. If there is an administrator session and a shelter exists, it routes to administrator navigation; otherwise it continues shelter onboarding.
+Splash waits for persisted DataStore state. If there is no session, it routes to Welcome. If there is a veterinarian session, it routes to veterinarian navigation. If there is an administrator session with completed onboarding, it routes to administrator navigation; otherwise it continues shelter onboarding.
 
 Auth and onboarding routes are cleared from the back stack when the app enters a main role destination.
 
 ## Auth And Onboarding
 
-`FakeAuthRepository` owns mock credential and invitation validation:
+`RealAuthRepository` owns real login through `POST /api/v1/authentication/sign-in`. It maps the backend response to `AppSession` and persists `token`, `id`, `firstName`, `lastName`, `email`, `role`, `shelterId`, `shelterName` and `onboardingCompleted` in DataStore.
+
+`BearerAuthInterceptor` reads the persisted token and adds it to protected requests as `Authorization: Bearer <token>`.
+
+Register administrator and invitation acceptance are intentionally not connected to backend sign-up yet. `FakeAuthRepository` still owns those mock flows and explicit development access:
 
 - `admin@bluepatitas.com` / `admin123`
 - `vet@bluepatitas.com` / `vet123`
 - `VET-BP-2026`
 
-In the current mock flow, demo administrator credentials represent an existing shelter admin. `FakeAuthRepository` seeds a demo shelter in DataStore before starting that session, so the admin demo goes directly to administrator navigation. New administrator accounts created from Register represent new users and still complete the shelter onboarding flow. Veterinarian login and invitation sessions go directly to veterinarian navigation.
+New administrator accounts created from Register represent new users and still complete the shelter onboarding flow. Veterinarian invitation sessions go directly to veterinarian navigation.
 
-`DataStoreShelterRepository` persists whether the shelter was created and stores basic shelter data. Signing out clears session keys only; shelter data remains for the demo.
+`DataStoreShelterRepository` persists whether the shelter was created and stores basic shelter data. Signing out clears session keys only; local shelter data remains for the onboarding prototype.
 
-Cuando exista Backend real, la decisión de navegar a Home o a onboarding debe venir desde la respuesta de login con campos como `role`, `shelterId` y `onboardingCompleted`, en lugar de sembrarse desde el repositorio mock.
+The backend sign-up endpoint is intentionally deferred until the complete admin flow is defined: create admin -> sign in -> create shelter/onboarding -> dashboard.
+
+## Backend
+
+Retrofit is configured with base URL `http://10.0.2.2:8080/` for the Android emulator. `BluePatitasApi` currently exposes:
+
+- `POST /api/v1/authentication/sign-in`
+- `GET /api/veterinary/me/dashboard`
+- `GET /api/veterinary/me/animals`
+
+`RealVeterinaryRepository` maps dashboard and animal DTOs into domain models and returns `BluePatitasResult` so the UI can show loading, error and retry states.
+
+`RealAnimalRepository` consumes `GET /api/animals` for administrator animal lists. `RealMonitoringRepository` consumes `GET /api/monitoring/zones` and `GET /api/monitoring/alerts`, and owns local in-memory alerts generated by safe-zone simulation.
 
 ## Role-Based Navigation
 
@@ -64,6 +80,16 @@ Cuando exista Backend real, la decisión de navegar a Home o a onboarding debe v
 `VETERINARIAN`: Home, Animals, Monitoring, Alerts, Profile.
 
 Routes keep role prefixes (`admin_*`, `vet_*`) so navigation stacks do not mix administrative and veterinarian destinations.
+
+Veterinarian Home and Animals are real read-only backend screens in this phase.
+
+Admin and veterinarian role navigation both expose complete Home, Animals, Monitoring, Alerts and Profile tabs. Monitoring and Alerts are shared by role, while copy adapts where needed.
+
+## Camera And Local Alerts
+
+Monitoring uses CameraX for a local phone camera preview. The app requests `CAMERA` only when the user activates the preview and renders a permission message if access is denied. No video is uploaded and no remote stream is created.
+
+Safe-zone simulation is local and controlled. `Simulate breach` creates an in-memory alert, switches the geofence state to outside safe zone, and asks Android to show a local notification on channel `bluepatitas_alerts`. On Android 13+, the app requests `POST_NOTIFICATIONS`; if the user denies it, the alert remains visible inside the app.
 
 ## Internationalization
 
@@ -78,4 +104,4 @@ The selected language is persisted in DataStore and applied during `Application.
 
 ## Future Backend
 
-When the backend exists, add remote data sources and replace Hilt bindings behind `AuthRepository`, `SessionRepository` and `ShelterRepository`. The UI and ViewModels should continue depending on use cases rather than API clients.
+Connect Register/sign-up after the admin registration flow is specified. Firebase Push should replace or complement local notifications when real remote alert delivery is available. The UI and ViewModels should continue depending on use cases rather than API clients.

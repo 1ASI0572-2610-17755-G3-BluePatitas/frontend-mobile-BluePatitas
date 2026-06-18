@@ -28,6 +28,14 @@ import com.bluepatitas.mobile.core.designsystem.components.BluePatitasTopAppBar
 import com.bluepatitas.mobile.core.designsystem.components.RoleBadge
 import com.bluepatitas.mobile.core.designsystem.icons.NavigationDotIcon
 import com.bluepatitas.mobile.domain.model.AppSession
+import com.bluepatitas.mobile.domain.model.UserRole
+import com.bluepatitas.mobile.feature.main.AdminAnimalsRoute
+import com.bluepatitas.mobile.feature.main.AdminHomeRoute
+import com.bluepatitas.mobile.feature.main.AlertsRoute
+import com.bluepatitas.mobile.feature.main.MonitoringRoute
+import com.bluepatitas.mobile.feature.main.ProfileRoute
+import com.bluepatitas.mobile.feature.veterinary.VeterinaryAnimalsRoute
+import com.bluepatitas.mobile.feature.veterinary.VeterinaryDashboardRoute
 
 @Composable
 fun RoleNavigationScaffold(
@@ -85,12 +93,64 @@ fun RoleNavigationScaffold(
             ) {
                 destinations.forEach { destination ->
                     composable(destination.route) {
-                        PlaceholderDestinationScreen(
-                            title = stringResource(destination.titleRes),
-                            description = stringResource(destination.descriptionRes),
-                            session = session,
-                            onSignOut = onSignOut
-                        )
+                        when {
+                            session.role == UserRole.SHELTER_ADMIN && destination.route == "admin_home" -> {
+                                AdminHomeRoute(
+                                    session = session,
+                                    onOpenAnimals = { navController.navigate("admin_animals") },
+                                    onOpenMonitoring = { navController.navigate("admin_monitoring") },
+                                    onOpenAlerts = { navController.navigate("admin_alerts") }
+                                )
+                            }
+
+                            session.role == UserRole.SHELTER_ADMIN && destination.route == "admin_animals" -> {
+                                AdminAnimalsRoute()
+                            }
+
+                            session.role == UserRole.SHELTER_ADMIN && destination.route == "admin_monitoring" -> {
+                                MonitoringRoute(session = session)
+                            }
+
+                            session.role == UserRole.SHELTER_ADMIN && destination.route == "admin_alerts" -> {
+                                AlertsRoute(session = session)
+                            }
+
+                            session.role == UserRole.SHELTER_ADMIN && destination.route == "admin_profile" -> {
+                                ProfileRoute(session = session, onSignOut = onSignOut)
+                            }
+
+                            session.role == UserRole.VETERINARIAN && destination.route == "vet_home" -> {
+                                VeterinaryDashboardRoute(
+                                    session = session,
+                                    onSignOut = onSignOut
+                                )
+                            }
+
+                            session.role == UserRole.VETERINARIAN && destination.route == "vet_animals" -> {
+                                VeterinaryAnimalsRoute(onSignOut = onSignOut)
+                            }
+
+                            session.role == UserRole.VETERINARIAN && destination.route == "vet_monitoring" -> {
+                                MonitoringRoute(session = session)
+                            }
+
+                            session.role == UserRole.VETERINARIAN && destination.route == "vet_alerts" -> {
+                                AlertsRoute(session = session)
+                            }
+
+                            session.role == UserRole.VETERINARIAN && destination.route == "vet_profile" -> {
+                                ProfileRoute(session = session, onSignOut = onSignOut)
+                            }
+
+                            else -> {
+                                PlaceholderDestinationScreen(
+                                    title = stringResource(destination.titleRes),
+                                    description = stringResource(destination.descriptionRes),
+                                    session = session,
+                                    onSignOut = onSignOut
+                                )
+                            }
+                        }
                     }
                 }
             }

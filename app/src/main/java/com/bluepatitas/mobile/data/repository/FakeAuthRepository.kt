@@ -29,7 +29,9 @@ class FakeAuthRepository @Inject constructor(
                     displayName = "Marina Herrera",
                     email = "admin@bluepatitas.com",
                     role = UserRole.SHELTER_ADMIN,
-                    shelterId = "shelter-wuf"
+                    shelterId = "shelter-wuf",
+                    shelterName = "WUF Shelter",
+                    onboardingCompleted = true
                 )
             }
 
@@ -39,7 +41,9 @@ class FakeAuthRepository @Inject constructor(
                     displayName = "Elena Ramos",
                     email = "vet@bluepatitas.com",
                     role = UserRole.VETERINARIAN,
-                    shelterId = "shelter-wuf"
+                    shelterId = "shelter-wuf",
+                    shelterName = "WUF Shelter",
+                    onboardingCompleted = true
                 )
 
             else -> null
@@ -55,7 +59,8 @@ class FakeAuthRepository @Inject constructor(
             displayName = "${form.firstName.trim()} ${form.lastName.trim()}".trim(),
             email = form.email.trim(),
             role = UserRole.SHELTER_ADMIN,
-            shelterId = "shelter-wuf"
+            shelterId = null,
+            onboardingCompleted = false
         )
         sessionRepository.startSession(session)
         return AuthResult.Success(session)
@@ -71,7 +76,9 @@ class FakeAuthRepository @Inject constructor(
             displayName = "Elena Ramos",
             email = form.email.trim().ifBlank { "vet@bluepatitas.com" },
             role = UserRole.VETERINARIAN,
-            shelterId = "shelter-wuf"
+            shelterId = "shelter-wuf",
+            shelterName = "WUF Shelter",
+            onboardingCompleted = true
         )
         sessionRepository.startSession(session)
         return AuthResult.Success(session)

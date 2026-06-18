@@ -36,7 +36,8 @@ enum class AuthFieldError {
     TermsRequired,
     InvalidCredentials,
     InvalidInvitationCode,
-    InvalidPhoneLength
+    InvalidPhoneLength,
+    ConnectionError
 }
 
 sealed interface LoginDestination {
@@ -95,13 +96,20 @@ class LoginViewModel @Inject constructor(
                         UserRole.VETERINARIAN -> LoginDestination.VeterinarianMain
                         UserRole.SHELTER_ADMIN -> {
                             val shelter = observeShelterUseCase().first()
-                            if (shelter == null) LoginDestination.AdminOnboarding else LoginDestination.AdminMain
+                            if (result.session.onboardingCompleted || shelter != null) {
+                                LoginDestination.AdminMain
+                            } else {
+                                LoginDestination.AdminOnboarding
+                            }
                         }
                     }
                     _uiState.update { it.copy(isSubmitting = false, destination = destination) }
                 }
 
                 AuthResult.InvalidInvitationCode -> Unit
+                is AuthResult.ConnectionError -> _uiState.update {
+                    it.copy(isSubmitting = false, formError = AuthFieldError.ConnectionError)
+                }
             }
         }
     }

@@ -17,7 +17,7 @@ fun destinationsFor(role: UserRole): List<AppDestination> =
             AppDestination("admin_animals", R.string.animals, R.string.animals_placeholder_admin),
             AppDestination("admin_monitoring", R.string.monitoring, R.string.monitoring_placeholder_admin),
             AppDestination("admin_alerts", R.string.alerts, R.string.alerts_placeholder_admin),
-            AppDestination("admin_more", R.string.more, R.string.more_placeholder_admin)
+            AppDestination("admin_profile", R.string.profile, R.string.more_placeholder_admin)
         )
 
         UserRole.VETERINARIAN -> listOf(

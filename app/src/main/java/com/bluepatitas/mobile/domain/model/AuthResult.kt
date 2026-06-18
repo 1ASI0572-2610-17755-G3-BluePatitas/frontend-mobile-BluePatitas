@@ -4,4 +4,5 @@ sealed interface AuthResult {
     data class Success(val session: AppSession) : AuthResult
     data object InvalidCredentials : AuthResult
     data object InvalidInvitationCode : AuthResult
+    data class ConnectionError(val message: String? = null) : AuthResult
 }

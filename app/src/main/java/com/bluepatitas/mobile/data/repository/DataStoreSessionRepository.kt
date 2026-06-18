@@ -26,37 +26,57 @@ class DataStoreSessionRepository @Inject constructor(
 
         AppSession(
             userId = userId,
+            firstName = preferences[PreferenceKeys.FirstName].orEmpty(),
+            lastName = preferences[PreferenceKeys.LastName].orEmpty(),
             displayName = displayName,
             email = email,
+            token = preferences[PreferenceKeys.Token],
             role = role,
-            shelterId = preferences[PreferenceKeys.ShelterId]
+            shelterId = preferences[PreferenceKeys.ShelterId],
+            shelterName = preferences[PreferenceKeys.ShelterSessionName],
+            onboardingCompleted = preferences[PreferenceKeys.OnboardingCompleted] == true
         )
     }
 
     override suspend fun startSession(session: AppSession) {
         dataStore.edit { preferences ->
             preferences[PreferenceKeys.UserId] = session.userId
+            preferences[PreferenceKeys.FirstName] = session.firstName
+            preferences[PreferenceKeys.LastName] = session.lastName
             preferences[PreferenceKeys.DisplayName] = session.displayName
             preferences[PreferenceKeys.Email] = session.email
+            session.token?.let { preferences[PreferenceKeys.Token] = it }
+                ?: preferences.remove(PreferenceKeys.Token)
             preferences[PreferenceKeys.Role] = session.role.name
             session.shelterId?.let { preferences[PreferenceKeys.ShelterId] = it }
                 ?: preferences.remove(PreferenceKeys.ShelterId)
-            preferences[PreferenceKeys.DemoMode] = true
+            session.shelterName?.let { preferences[PreferenceKeys.ShelterSessionName] = it }
+                ?: preferences.remove(PreferenceKeys.ShelterSessionName)
+            preferences[PreferenceKeys.OnboardingCompleted] = session.onboardingCompleted
+            preferences[PreferenceKeys.DemoMode] = false
         }
     }
 
     override suspend fun startDemoSession(role: UserRole) {
         val session = DemoAccounts.sessionFor(role)
         startSession(session)
+        dataStore.edit { preferences ->
+            preferences[PreferenceKeys.DemoMode] = true
+        }
     }
 
     override suspend fun clearSession() {
         dataStore.edit { preferences ->
             preferences.remove(PreferenceKeys.UserId)
+            preferences.remove(PreferenceKeys.FirstName)
+            preferences.remove(PreferenceKeys.LastName)
             preferences.remove(PreferenceKeys.DisplayName)
             preferences.remove(PreferenceKeys.Email)
+            preferences.remove(PreferenceKeys.Token)
             preferences.remove(PreferenceKeys.Role)
             preferences.remove(PreferenceKeys.ShelterId)
+            preferences.remove(PreferenceKeys.ShelterSessionName)
+            preferences.remove(PreferenceKeys.OnboardingCompleted)
         }
     }
 }

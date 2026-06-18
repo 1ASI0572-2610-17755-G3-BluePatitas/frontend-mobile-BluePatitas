@@ -11,7 +11,9 @@ object DemoAccounts {
                 displayName = "Marina Herrera",
                 email = "admin@bluepatitas.com",
                 role = UserRole.SHELTER_ADMIN,
-                shelterId = "shelter-bluepatitas-demo"
+                shelterId = "shelter-bluepatitas-demo",
+                shelterName = "WUF Shelter",
+                onboardingCompleted = true
             )
 
             UserRole.VETERINARIAN -> AppSession(
@@ -19,7 +21,9 @@ object DemoAccounts {
                 displayName = "Elena Ramos",
                 email = "vet@bluepatitas.com",
                 role = UserRole.VETERINARIAN,
-                shelterId = "shelter-bluepatitas-demo"
+                shelterId = "shelter-bluepatitas-demo",
+                shelterName = "WUF Shelter",
+                onboardingCompleted = true
             )
         }
 }

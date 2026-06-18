@@ -1,6 +1,6 @@
 # BluePatitas Android
 
-BluePatitas is a native Android app foundation for an IoT shelter management product. The current iteration includes the initial access and onboarding flow with mocked repositories, while keeping the architecture ready for a future REST API.
+BluePatitas is a native Android app foundation for an IoT shelter management product. The current iteration includes real backend sign-in and veterinary read endpoints, while Register and shelter onboarding remain visual/mock until the full admin registration flow is defined.
 
 ## Stack
 
@@ -11,6 +11,9 @@ BluePatitas is a native Android app foundation for an IoT shelter management pro
 - MVVM with StateFlow
 - Hilt dependency injection
 - DataStore Preferences
+- Retrofit + OkHttp
+- CameraX phone camera preview
+- Local Android notifications
 - AppCompat per-app locales for runtime language changes
 - Kotlin DSL and Gradle version catalog
 - `minSdk 26`, `compileSdk 36`, `targetSdk 36`
@@ -40,13 +43,13 @@ Existing session:
 Splash -> role navigation
 ```
 
-The demo administrator credentials represent an existing shelter administrator and go directly to administrator navigation. New administrator accounts created from Register still complete shelter onboarding:
+Real sign-in uses the local backend at `http://10.0.2.2:8080/`. Administrator sessions route from the backend response: completed onboarding goes to administrator navigation, otherwise the app continues shelter onboarding. New administrator accounts created from Register still use the mock path and complete shelter onboarding:
 
 ```text
 Basic information -> Location -> Confirmation -> Administrator navigation
 ```
 
-Signing out clears only the session and returns to Welcome. Demo shelter data is kept so a later administrator login can go directly to the administrator navigation.
+Signing out clears the persisted session and returns to Welcome. Existing shelter draft/profile data remains local for the current onboarding prototype.
 
 ## Demo Credentials
 
@@ -86,11 +89,17 @@ VET-BP-2026
 - Development access screen, now secondary from Welcome
 - Role-based placeholder navigation
 
+## Backend Integration
+
+`RealAuthRepository` posts login credentials to `POST /api/v1/authentication/sign-in`. The returned token, user identity, role, shelter id/name and onboarding flag are persisted in DataStore. `BearerAuthInterceptor` reads the token from DataStore and adds `Authorization: Bearer <token>` to protected requests.
+
+Veterinarian Home consumes `GET /api/veterinary/me/dashboard`. Veterinarian Animals consumes `GET /api/veterinary/me/animals`. Both screens show loading and connection error states with retry.
+
+Admin and veterinarian navigation now share presentable Home, Animals, Monitoring, Alerts and Profile experiences. Monitoring consumes backend zones and alerts, and falls back to clearly labeled presentation data when an endpoint is unavailable. The zone detail view can activate the phone camera through CameraX, simulate safe-zone breaches, and create local in-app alerts plus Android local notifications through the `bluepatitas_alerts` channel.
+
 ## Mocked Behavior
 
-There is still no backend, Firebase, maps, camera streaming or real email delivery. `FakeAuthRepository` validates the demo credentials and invitation code, while DataStore simulates persisted `role`, `shelterId` and shelter creation state. In the current mock flow, demo administrator credentials represent an existing shelter admin and navigate directly to the admin area. New admin accounts created from Register still complete the shelter onboarding flow. Once the Backend is available, this decision will be based on the login response fields such as role, shelterId and onboardingCompleted.
-
-Resumen en español: en el flujo mock actual, las credenciales demo de administrador representan a un administrador existente con refugio y entran directamente al área admin. Las cuentas nuevas creadas desde Register todavía completan el onboarding de refugio. Cuando exista Backend real, esta decisión vendrá desde la respuesta de login con campos como role, shelterId y onboardingCompleted.
+Register administrator, veterinarian invitation and shelter onboarding are intentionally still mock/local in this phase. `FakeAuthRepository` remains available for those flows and for the explicit development access screen. There is still no Firebase, maps, camera streaming or real email delivery.
 
 ## Project Structure
 
@@ -111,12 +120,14 @@ app/src/main/java/com/bluepatitas/mobile
 |-- data
 |   |-- local
 |   |-- mock
+|   |-- remote
 |   |-- repository
 |   `-- mapper
 `-- feature
     |-- developer
     |-- auth
     |-- onboarding
+    |-- veterinary
     |-- dashboard
     |-- animals
     |-- monitoring
@@ -129,8 +140,8 @@ app/src/main/java/com/bluepatitas/mobile
 
 ## Not Implemented Yet
 
-Real Dashboard, Animals, Diet, Geofence, Alerts, Monitoring and Devices screens are intentionally deferred. Room is still deferred until the Animals module defines real local entities and synchronization needs.
+Diet, full device management, remote video streaming, Firebase Push and advanced reports are intentionally deferred. Veterinary dashboard and shelter animals are read-only backend integrations. Monitoring is functional with backend zones/alerts, phone camera preview and controlled geofence simulation. Room is still deferred until the Animals module defines real local entities and synchronization needs.
 
 ## Future API Replacement
 
-Keep presentation code calling ViewModels and use cases. Add API data sources under `data`, map DTOs through `data/mapper`, and bind API-backed implementations for `AuthRepository`, `SessionRepository` and `ShelterRepository` in Hilt.
+Keep presentation code calling ViewModels and use cases. Future backend work should connect Register/sign-up only after defining the complete flow: create admin -> sign in -> create shelter/onboarding -> dashboard. Firebase Push can replace the current local notification path once the backend emits real push events.

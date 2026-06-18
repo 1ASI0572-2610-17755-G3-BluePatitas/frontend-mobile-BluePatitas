@@ -7,10 +7,17 @@ import com.bluepatitas.mobile.data.repository.DataStoreAppPreferencesRepository
 import com.bluepatitas.mobile.data.repository.DataStoreSessionRepository
 import com.bluepatitas.mobile.data.repository.DataStoreShelterRepository
 import com.bluepatitas.mobile.data.repository.FakeAuthRepository
+import com.bluepatitas.mobile.data.repository.RealAnimalRepository
+import com.bluepatitas.mobile.data.repository.RealAuthRepository
+import com.bluepatitas.mobile.data.repository.RealMonitoringRepository
+import com.bluepatitas.mobile.data.repository.RealVeterinaryRepository
+import com.bluepatitas.mobile.domain.repository.AnimalRepository
 import com.bluepatitas.mobile.domain.repository.AppPreferencesRepository
 import com.bluepatitas.mobile.domain.repository.AuthRepository
+import com.bluepatitas.mobile.domain.repository.MonitoringRepository
 import com.bluepatitas.mobile.domain.repository.SessionRepository
 import com.bluepatitas.mobile.domain.repository.ShelterRepository
+import com.bluepatitas.mobile.domain.repository.VeterinaryRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -37,7 +44,7 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindAuthRepository(
-        repository: FakeAuthRepository
+        repository: RealAuthRepository
     ): AuthRepository
 
     @Binds
@@ -45,6 +52,24 @@ abstract class RepositoryModule {
     abstract fun bindShelterRepository(
         repository: DataStoreShelterRepository
     ): ShelterRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindVeterinaryRepository(
+        repository: RealVeterinaryRepository
+    ): VeterinaryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAnimalRepository(
+        repository: RealAnimalRepository
+    ): AnimalRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMonitoringRepository(
+        repository: RealMonitoringRepository
+    ): MonitoringRepository
 
     companion object {
         @Provides

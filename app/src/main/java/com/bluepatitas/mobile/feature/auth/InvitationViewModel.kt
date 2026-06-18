@@ -73,6 +73,7 @@ class InvitationViewModel @Inject constructor(
 
                 is AuthResult.Success -> _uiState.update { it.copy(isSubmitting = false, completed = true) }
                 AuthResult.InvalidCredentials -> Unit
+                is AuthResult.ConnectionError -> Unit
             }
         }
     }
