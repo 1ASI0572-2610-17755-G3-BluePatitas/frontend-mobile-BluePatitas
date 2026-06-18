@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -244,10 +246,39 @@ fun LoginScreen(
             error = state.passwordError?.asString()
         )
         TextButton(onClick = onForgotPassword, modifier = Modifier.fillMaxWidth()) {
-            Text(text = stringResource(R.string.forgot_password))
+            Text(
+                text = stringResource(R.string.forgot_password),
+                color = com.bluepatitas.mobile.core.designsystem.theme.BluePrimary,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+            )
         }
         if (state.formError != null) {
-            Text(text = state.formError.asString(), color = MaterialTheme.colorScheme.error)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3F3)),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFC1C1)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "!",
+                        color = Color(0xFFC62828),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                    Text(
+                        text = state.formError.asString(),
+                        color = Color(0xFFC62828),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
         }
         BluePatitasPrimaryButton(
             text = stringResource(R.string.sign_in),
@@ -255,7 +286,11 @@ fun LoginScreen(
             enabled = !state.isSubmitting
         )
         TextButton(onClick = onRegister, modifier = Modifier.fillMaxWidth()) {
-            Text(text = stringResource(R.string.create_admin_account))
+            Text(
+                text = stringResource(R.string.create_admin_account),
+                color = com.bluepatitas.mobile.core.designsystem.theme.BluePrimary,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+            )
         }
     }
 }
@@ -345,7 +380,32 @@ fun ForgotPasswordScreen(
             keyboardType = KeyboardType.Email
         )
         if (state.success) {
-            Text(text = stringResource(R.string.reset_success), color = MaterialTheme.colorScheme.secondary)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA5D6A7)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "✓",
+                        color = Color(0xFF2E7D32),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(R.string.reset_success),
+                        color = Color(0xFF2E7D32),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
         }
         BluePatitasPrimaryButton(text = stringResource(R.string.send_reset_link), onClick = onSubmit)
         BluePatitasOutlinedButton(text = stringResource(R.string.back_to_login), onClick = onBackToLogin)

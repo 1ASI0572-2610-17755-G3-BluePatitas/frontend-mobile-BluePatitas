@@ -5,9 +5,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +36,6 @@ import com.bluepatitas.mobile.R
 import com.bluepatitas.mobile.core.designsystem.components.BluePatitasOutlinedButton
 import com.bluepatitas.mobile.core.designsystem.components.BluePatitasTopAppBar
 import com.bluepatitas.mobile.core.designsystem.components.RoleBadge
-import com.bluepatitas.mobile.core.designsystem.icons.NavigationDotIcon
 import com.bluepatitas.mobile.domain.model.AppSession
 import com.bluepatitas.mobile.domain.model.UserRole
 import com.bluepatitas.mobile.feature.main.AdminAnimalsRoute
@@ -54,7 +63,10 @@ fun RoleNavigationScaffold(
                 BluePatitasTopAppBar(title = stringResource(R.string.product_name))
             },
             bottomBar = {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = Color(0xFFF5F9FD),
+                    tonalElevation = 8.dp
+                ) {
                     destinations.forEach { destination ->
                         val selected = currentRoute == destination.route ||
                             (currentRoute == null && destination == destinations.first())
@@ -70,17 +82,33 @@ fun RoleNavigationScaffold(
                                 }
                             },
                             icon = {
-                                NavigationDotIcon(
-                                    color = if (selected) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
+                                val iconVector = when (destination.route) {
+                                    "admin_home", "vet_home" -> Icons.Default.Home
+                                    "admin_animals", "vet_animals" -> Icons.Default.List
+                                    "admin_monitoring", "vet_monitoring" -> Icons.Default.Search
+                                    "admin_alerts", "vet_alerts" -> Icons.Default.Notifications
+                                    "admin_profile", "vet_profile" -> Icons.Default.Person
+                                    else -> Icons.Default.Warning
+                                }
+                                Icon(
+                                    imageVector = iconVector,
+                                    contentDescription = stringResource(destination.titleRes)
                                 )
                             },
                             label = {
-                                Text(text = stringResource(destination.titleRes))
-                            }
+                                Text(
+                                    text = stringResource(destination.titleRes),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color(0xFF1769E0),
+                                unselectedIconColor = Color(0xFF5C6B7A),
+                                selectedTextColor = Color(0xFF1769E0),
+                                unselectedTextColor = Color(0xFF5C6B7A),
+                                indicatorColor = Color(0xFFEAF4FF)
+                            )
                         )
                     }
                 }

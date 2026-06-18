@@ -3,6 +3,7 @@ package com.bluepatitas.mobile.core.designsystem.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -11,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -20,10 +23,12 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.bluepatitas.mobile.R
 import com.bluepatitas.mobile.core.designsystem.icons.PawLogoIcon
 import com.bluepatitas.mobile.core.designsystem.theme.BlueDark
+import com.bluepatitas.mobile.core.designsystem.theme.BluePrimary
 import com.bluepatitas.mobile.core.designsystem.theme.BlueSurface
 import com.bluepatitas.mobile.core.designsystem.theme.GreenSuccess
 import com.bluepatitas.mobile.core.designsystem.theme.Spacing
@@ -58,6 +64,16 @@ fun BluePatitasTextField(
         supportingText = error?.let { { Text(text = it) } },
         singleLine = singleLine,
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = keyboardType),
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = BluePrimary,
+            unfocusedBorderColor = Color(0xFFD6E3F3),
+            focusedContainerColor = White,
+            unfocusedContainerColor = Color(0xFFF5F8FC),
+            errorContainerColor = Color(0xFFFFF5F5),
+            focusedLabelColor = BluePrimary,
+            unfocusedLabelColor = Color(0xFF5C6B7A)
+        ),
         modifier = modifier.fillMaxWidth()
     )
 }
@@ -86,6 +102,16 @@ fun BluePatitasPasswordField(
         singleLine = true,
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Password),
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = BluePrimary,
+            unfocusedBorderColor = Color(0xFFD6E3F3),
+            focusedContainerColor = White,
+            unfocusedContainerColor = Color(0xFFF5F8FC),
+            errorContainerColor = Color(0xFFFFF5F5),
+            focusedLabelColor = BluePrimary,
+            unfocusedLabelColor = Color(0xFF5C6B7A)
+        ),
         trailingIcon = {
             IconButton(
                 onClick = { onVisibilityChange(!visible) },
@@ -100,7 +126,9 @@ fun BluePatitasPasswordField(
                         stringResource(R.string.show_password_short)
                     },
                     style = MaterialTheme.typography.labelSmall,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    color = BluePrimary,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 )
             }
         },
@@ -125,7 +153,7 @@ fun BluePatitasCheckboxRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Checkbox(checked = checked, onCheckedChange = onCheckedChange)
-            Text(text = text, style = MaterialTheme.typography.bodyMedium)
+            Text(text = text, style = MaterialTheme.typography.bodyMedium, color = BlueDark)
         }
         if (error != null) {
             Text(
@@ -192,23 +220,35 @@ fun BluePatitasAuthHeader(
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        PawLogoIcon(
-            color = BlueDark,
-            modifier = Modifier.semantics {
-                contentDescription = logoDescription
-            }
-        )
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .background(Color.White, CircleShape)
+                .padding(14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            PawLogoIcon(
+                color = BluePrimary,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .semantics {
+                        contentDescription = logoDescription
+                    }
+            )
+        }
         Text(
             text = title,
             color = BlueDark,
-            style = MaterialTheme.typography.headlineLarge,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
             textAlign = TextAlign.Center
         )
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyLarge,
+            color = Color(0xFF5C6B7A),
             textAlign = TextAlign.Center
         )
     }
@@ -223,16 +263,16 @@ fun BluePatitasInfoCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium, color = BlueDark)
+            Text(text = title, style = MaterialTheme.typography.titleMedium, color = BlueDark, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             if (supportingText != null) {
-                Text(text = supportingText, style = MaterialTheme.typography.bodyMedium)
+                Text(text = supportingText, style = MaterialTheme.typography.bodyMedium, color = Color(0xFF5C6B7A))
             }
         }
     }
@@ -250,26 +290,28 @@ fun BluePatitasFormScaffold(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(BlueSurface)
+            .background(Color(0xFFF2F7FD))
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
+        Spacer(modifier = Modifier.height(12.dp))
         BluePatitasAuthHeader(title = title, subtitle = subtitle)
         topContent?.invoke()
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(containerColor = White)
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
             Column(
-                modifier = Modifier.padding(Spacing.md),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 content()
             }
         }
         bottomContent?.invoke()
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }

@@ -51,10 +51,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bluepatitas.mobile.R
@@ -68,6 +71,8 @@ import com.bluepatitas.mobile.core.designsystem.theme.BluePrimary
 import com.bluepatitas.mobile.core.designsystem.theme.BlueSurface
 import com.bluepatitas.mobile.core.designsystem.theme.GreenSuccess
 import com.bluepatitas.mobile.core.designsystem.theme.RedCritical
+import com.bluepatitas.mobile.core.designsystem.theme.Ink
+import com.bluepatitas.mobile.core.designsystem.theme.MutedInk
 import com.bluepatitas.mobile.domain.model.AnimalSummary
 import com.bluepatitas.mobile.domain.model.AppSession
 import com.bluepatitas.mobile.domain.model.MonitoringAlert
@@ -447,7 +452,7 @@ private fun MainSurface(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FBFF))
+            .background(Color(0xFFF2F7FD))
     ) {
         content()
     }
@@ -455,45 +460,88 @@ private fun MainSurface(
 
 @Composable
 private fun ScreenHeader(title: String, subtitle: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        modifier = Modifier.padding(bottom = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineLarge,
-            color = BluePrimary,
-            fontWeight = FontWeight.Bold
+            style = MaterialTheme.typography.headlineMedium,
+            color = BlueDark,
+            fontWeight = FontWeight.ExtraBold
         )
-        Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MutedInk,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
 @Composable
 private fun MetricTile(label: String, value: String, modifier: Modifier = Modifier, critical: Boolean = false) {
     Card(
-        modifier = modifier.height(112.dp),
-        colors = CardDefaults.cardColors(containerColor = if (critical) Color(0xFFFFF3F3) else Color.White),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        modifier = modifier.height(118.dp),
+        colors = CardDefaults.cardColors(containerColor = if (critical) Color(0xFFFFF4F4) else Color.White),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (critical) Color(0xFFFFC1C1) else Color(0xFFE9EFF5)
+        )
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(label.uppercase(), style = MaterialTheme.typography.labelMedium, color = if (critical) RedCritical else MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.headlineLarge, color = if (critical) RedCritical else BlueDark)
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (critical) RedCritical else MutedInk,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineMedium,
+                color = if (critical) RedCritical else BlueDark,
+                fontWeight = FontWeight.ExtraBold
+            )
         }
     }
 }
 
 @Composable
 private fun QuickAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Button(onClick = onClick, modifier = modifier.height(48.dp), shape = RoundedCornerShape(14.dp)) {
-        Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    androidx.compose.material3.Button(
+        onClick = onClick,
+        modifier = modifier.height(52.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+            containerColor = BluePrimary,
+            contentColor = Color.White
+        ),
+        elevation = androidx.compose.material3.ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+    ) {
+        Text(
+            text = text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(text = text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = BlueDark)
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold,
+        color = BlueDark,
+        modifier = Modifier.padding(top = 8.dp)
+    )
 }
 
 @Composable
@@ -501,8 +549,9 @@ private fun AnimalSummaryCard(animal: AnimalSummary) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, Color(0xFFE9EFF5))
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -511,19 +560,31 @@ private fun AnimalSummaryCard(animal: AnimalSummary) {
             InitialAvatar(text = animal.name)
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(animal.name.ifBlank { stringResource(R.string.unknown_animal) }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("${animal.species.ifBlank { stringResource(R.string.not_available) }} • ${animal.breed ?: stringResource(R.string.not_available)}", style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    stringResource(
+                    text = animal.name.ifBlank { stringResource(R.string.unknown_animal) },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = BlueDark
+                )
+                Text(
+                    text = "${animal.species.ifBlank { stringResource(R.string.not_available) }} • ${animal.breed ?: stringResource(R.string.not_available)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MutedInk
+                )
+                Text(
+                    text = stringResource(
                         R.string.animal_weight_zone,
                         animal.weightKg?.toString() ?: stringResource(R.string.not_available),
                         animal.zoneName ?: stringResource(R.string.not_available)
                     ),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MutedInk
                 )
             }
-            StatusPill(text = animal.healthCondition ?: stringResource(R.string.normal), critical = animal.healthCondition?.contains("TREAT", true) == true)
+            StatusPill(
+                text = animal.healthCondition ?: stringResource(R.string.normal),
+                critical = animal.healthCondition?.contains("TREAT", true) == true
+            )
         }
     }
 }
@@ -533,19 +594,35 @@ private fun MonitoringZoneCard(zone: MonitoringZone, selected: Boolean, onClick:
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = if (selected) BlueSurface else Color.White),
-        shape = RoundedCornerShape(18.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(containerColor = if (selected) Color(0xFFF2F8FF) else Color.White),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 3.dp else 1.dp),
+        border = BorderStroke(
+            width = if (selected) 2.dp else 1.dp,
+            color = if (selected) BluePrimary else Color(0xFFE9EFF5)
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(zone.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(
-                        stringResource(R.string.zone_camera_status, if (zone.cameraEnabled) stringResource(R.string.enabled) else stringResource(R.string.disabled)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(zone.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = BlueDark)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(top = 2.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (zone.cameraEnabled) GreenSuccess else Color.Gray)
+                        )
+                        Text(
+                            text = stringResource(R.string.zone_camera_status, if (zone.cameraEnabled) stringResource(R.string.enabled) else stringResource(R.string.disabled)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MutedInk
+                        )
+                    }
                 }
                 StatusPill(zone.status.ifBlank { stringResource(R.string.normal) }, critical = zone.status.contains("alert", true))
             }
@@ -568,48 +645,184 @@ private fun ZoneDetailCard(
     onSimulateBreach: () -> Unit,
     onSimulateSafe: () -> Unit
 ) {
+    val isBreach = geofenceStatus == GeofenceStatus.OutsideSafeZone
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(18.dp)
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, Color(0xFFE9EFF5))
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(zone.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.zone_detail_subtitle), style = MaterialTheme.typography.bodyMedium)
+                    Text(zone.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = BlueDark)
+                    Text(
+                        text = stringResource(R.string.zone_detail_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedInk
+                    )
                 }
-                StatusPill(if (geofenceStatus == GeofenceStatus.OutsideSafeZone) stringResource(R.string.outside_safe_zone) else stringResource(R.string.inside_safe_zone), critical = geofenceStatus == GeofenceStatus.OutsideSafeZone)
+                StatusPill(
+                    text = if (isBreach) stringResource(R.string.outside_safe_zone) else stringResource(R.string.inside_safe_zone),
+                    critical = isBreach
+                )
             }
-            if (phoneCameraActive) {
-                PhoneCameraPreview()
-            } else {
-                CameraPlaceholder(imageUrl = zone.imageUrl)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .clip(RoundedCornerShape(16.dp))
+            ) {
+                if (phoneCameraActive) {
+                    PhoneCameraPreview()
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(12.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            text = "Phone camera live preview",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                } else {
+                    CameraPlaceholder(imageUrl = zone.imageUrl)
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 SmallMetric(stringResource(R.string.min_temp), "${zone.minTemperatureC?.toInt() ?: 0}°C", Modifier.weight(1f))
                 SmallMetric(stringResource(R.string.max_temp), "${zone.maxTemperatureC?.toInt() ?: 0}°C", Modifier.weight(1f))
             }
-            if (geofenceStatus == GeofenceStatus.OutsideSafeZone) {
-                WarningPanel(stringResource(R.string.pet_left_safe_zone))
+            if (isBreach) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3F3)),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFFC1C1)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "⚠️",
+                            color = RedCritical,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.pet_left_safe_zone),
+                                color = RedCritical,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Simulated safe-zone data",
+                                color = Color(0xFF8C3E3E),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            } else {
+                Surface(
+                    color = Color(0xFFF4F9FF),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Current location".uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = BluePrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text(
+                                text = "Lat: -12.0464",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = BlueDark,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Lng: -77.0428",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = BlueDark,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(GreenSuccess))
+                            Text(
+                                text = "Tracking active (Simulated safe-zone data)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MutedInk
+                            )
+                        }
+                    }
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (phoneCameraActive) {
-                    OutlinedButton(onClick = onStopCamera, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.stop_camera))
+                    OutlinedButton(
+                        onClick = onStopCamera,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, BluePrimary)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.stop_camera),
+                            color = BluePrimary,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 } else {
-                    Button(onClick = onActivateCamera, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.activate_phone_camera))
+                    Button(
+                        onClick = onActivateCamera,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = BluePrimary)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.activate_phone_camera),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = onSimulateSafe, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.simulate_safe_position))
+                OutlinedButton(
+                    onClick = onSimulateSafe,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Color(0xFFB0BEC5))
+                ) {
+                    Text(
+                        text = stringResource(R.string.simulate_safe_position),
+                        color = Color(0xFF37474F),
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                Button(onClick = onSimulateBreach, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.simulate_breach))
+                Button(
+                    onClick = onSimulateBreach,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFECEFF1), contentColor = Color(0xFF37474F))
+                ) {
+                    Text(
+                        text = stringResource(R.string.simulate_breach),
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -618,33 +831,70 @@ private fun ZoneDetailCard(
 
 @Composable
 private fun AlertCard(alert: MonitoringAlert, onResolve: ((String) -> Unit)?) {
+    val isCritical = alert.isBreachConfirmed
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = if (alert.isBreachConfirmed) Color(0xFFFFF3F3) else Color.White),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(containerColor = if (isCritical) Color(0xFFFFF5F5) else Color.White),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isCritical) Color(0xFFFFD1D1) else Color(0xFFE9EFF5)
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(alert.zoneName.ifBlank { stringResource(R.string.monitoring) }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(alert.message, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = alert.zoneName.ifBlank { stringResource(R.string.monitoring) },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = BlueDark
+                    )
+                    Text(
+                        text = alert.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isCritical) Color(0xFF8C3E3E) else Ink
+                    )
                 }
-                StatusPill(if (alert.isLocal) stringResource(R.string.local) else stringResource(R.string.backend), critical = alert.isBreachConfirmed)
-            }
-            if (alert.latitude != null && alert.longitude != null) {
-                Text(
-                    stringResource(R.string.coordinates_value, alert.latitude, alert.longitude),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                StatusPill(
+                    text = if (alert.isLocal) stringResource(R.string.local) else stringResource(R.string.backend),
+                    critical = isCritical
                 )
             }
-            Text(
-                if (alert.trackingActive) stringResource(R.string.tracking_active) else stringResource(R.string.tracking_inactive),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (alert.latitude != null && alert.longitude != null) {
+                Surface(
+                    color = if (isCritical) Color(0xFFFFECEC) else Color(0xFFF5F9FD),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "📍 " + stringResource(R.string.coordinates_value, alert.latitude, alert.longitude),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isCritical) Color(0xFF8C3E3E) else MutedInk,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = if (alert.trackingActive) stringResource(R.string.tracking_active) else stringResource(R.string.tracking_inactive),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (alert.trackingActive) GreenSuccess else Color.Gray,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
             onResolve?.let {
-                BluePatitasOutlinedButton(text = stringResource(R.string.resolve_alert), onClick = { it(alert.id) })
+                Spacer(modifier = Modifier.height(4.dp))
+                BluePatitasOutlinedButton(
+                    text = stringResource(R.string.resolve_alert),
+                    onClick = { it(alert.id) }
+                )
             }
         }
     }
@@ -655,16 +905,28 @@ private fun CameraPlaceholder(imageUrl: String?) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp)
+            .height(220.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFDDECF7)),
+            .background(Color(0xFFE8F2FA)),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = imageUrl?.takeIf { it.isNotBlank() } ?: stringResource(R.string.camera_snapshot_placeholder),
-            style = MaterialTheme.typography.bodyMedium,
-            color = BlueDark
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "📷",
+                style = MaterialTheme.typography.headlineMedium
+            )
+            Text(
+                text = imageUrl?.takeIf { it.isNotBlank() } ?: stringResource(R.string.camera_snapshot_placeholder),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MutedInk,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+        }
     }
 }
 
@@ -701,15 +963,34 @@ private fun PhoneCameraPreview() {
 @Composable
 private fun FallbackBanner(onRetry: () -> Unit) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
-        shape = RoundedCornerShape(14.dp)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9E6)),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFFFFE0B2)),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(stringResource(R.string.simulated_for_presentation), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
+            Text(
+                text = "💡 " + stringResource(R.string.simulated_for_presentation),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFFE65100),
+                fontWeight = FontWeight.Medium
+            )
+            OutlinedButton(
+                onClick = onRetry,
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, Color(0xFFFFB74D))
+            ) {
+                Text(
+                    text = stringResource(R.string.retry),
+                    color = Color(0xFFE65100),
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
@@ -718,10 +999,23 @@ private fun FallbackBanner(onRetry: () -> Unit) {
 private fun WarningPanel(text: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFFFFF3F3),
-        shape = RoundedCornerShape(14.dp)
+        color = Color(0xFFFFF5F5),
+        border = BorderStroke(1.dp, Color(0xFFFFD1D1)),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Text(text = text, modifier = Modifier.padding(14.dp), color = RedCritical, style = MaterialTheme.typography.bodyMedium)
+        Row(
+            modifier = Modifier.padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("⚠️", color = RedCritical)
+            Text(
+                text = text,
+                color = RedCritical,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -730,9 +1024,16 @@ private fun EmptyPanel(text: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
-        shape = RoundedCornerShape(14.dp)
+        border = BorderStroke(1.dp, Color(0xFFE9EFF5)),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Text(text = text, modifier = Modifier.padding(18.dp), style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = text,
+            modifier = Modifier.padding(18.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MutedInk,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -740,12 +1041,23 @@ private fun EmptyPanel(text: String) {
 private fun SmallMetric(label: String, value: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
-        color = BlueSurface,
-        shape = RoundedCornerShape(12.dp)
+        color = Color(0xFFF5F9FD),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFFE3F0FF))
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleMedium, color = BlueDark, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MutedInk,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                color = BlueDark,
+                fontWeight = FontWeight.ExtraBold
+            )
         }
     }
 }
@@ -753,14 +1065,20 @@ private fun SmallMetric(label: String, value: String, modifier: Modifier = Modif
 @Composable
 private fun StatusPill(text: String, critical: Boolean = false) {
     val color = when {
-        critical -> RedCritical
-        text.contains("warning", true) -> AmberWarning
+        critical || text.contains("critical", true) || text.contains("alert", true) || text.contains("outside", true) -> RedCritical
+        text.contains("warning", true) || text.contains("observation", true) -> AmberWarning
         else -> GreenSuccess
     }
-    Surface(color = color.copy(alpha = 0.14f), shape = RoundedCornerShape(100.dp)) {
+    val bgAlpha = 0.12f
+    val textLabel = text.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+    Surface(
+        color = color.copy(alpha = bgAlpha),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.25f))
+    ) {
         Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            text = textLabel,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             color = color,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold
@@ -773,14 +1091,16 @@ private fun ZoneCompactCard(zone: MonitoringZone) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFFE9EFF5))
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(zone.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(zone.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = BlueDark)
                 Text(
-                    stringResource(R.string.zone_environment_value, zone.temperatureC?.toInt() ?: 0, zone.humidity?.toInt() ?: 0),
-                    style = MaterialTheme.typography.bodySmall
+                    text = stringResource(R.string.zone_environment_value, zone.temperatureC?.toInt() ?: 0, zone.humidity?.toInt() ?: 0),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedInk
                 )
             }
             StatusPill(zone.status.ifBlank { stringResource(R.string.normal) }, critical = zone.status.contains("alert", true))
@@ -794,18 +1114,19 @@ private fun InitialAvatar(text: String) {
         modifier = Modifier
             .size(54.dp)
             .clip(CircleShape)
-            .background(BluePrimary),
+            .background(Color(0xFFEAF4FF))
+            .border(2.dp, Color(0xFFD0E3FA), CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        Text(text.initials(), color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(text.initials(), color = BluePrimary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun InfoRow(label: String, value: String) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyLarge, color = BlueDark)
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MutedInk, fontWeight = FontWeight.Bold)
+        Text(value, style = MaterialTheme.typography.bodyLarge, color = BlueDark, fontWeight = FontWeight.Medium)
     }
 }
 
