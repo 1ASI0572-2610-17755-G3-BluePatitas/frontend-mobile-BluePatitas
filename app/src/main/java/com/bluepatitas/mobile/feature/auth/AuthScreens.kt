@@ -307,6 +307,7 @@ fun RegisterRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(state.completed) {
         if (state.completed) {
+            delay(900)
             viewModel.clearCompleted()
             onCompleted()
         }
@@ -343,6 +344,22 @@ fun RegisterScreen(
         BluePatitasPasswordField(state.password, { onFieldChange("password", it) }, stringResource(R.string.password), state.passwordVisible, onPasswordVisible, error = state.errors["password"]?.asString())
         BluePatitasPasswordField(state.confirmPassword, { onFieldChange("confirmPassword", it) }, stringResource(R.string.confirm_password), state.confirmPasswordVisible, onConfirmPasswordVisible, error = state.errors["confirmPassword"]?.asString())
         BluePatitasCheckboxRow(state.acceptedTerms, onAcceptedTerms, stringResource(R.string.accept_terms), error = state.errors["terms"]?.asString())
+        state.formError?.let { error ->
+            Text(
+                text = error.asString(),
+                color = Color(0xFFC62828),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+            )
+        }
+        if (state.successMessageVisible) {
+            Text(
+                text = stringResource(R.string.register_success_login),
+                color = Color(0xFF2E7D32),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+            )
+        }
         BluePatitasPrimaryButton(text = stringResource(R.string.create_account), onClick = onSubmit, enabled = !state.isSubmitting)
         TextButton(onClick = onLogin, modifier = Modifier.fillMaxWidth()) {
             Text(text = stringResource(R.string.have_account_sign_in))
@@ -465,6 +482,8 @@ fun AuthFieldError.asString(): String =
         AuthFieldError.InvalidCredentials -> stringResource(R.string.invalid_credentials)
         AuthFieldError.InvalidInvitationCode -> stringResource(R.string.invalid_invitation_code)
         AuthFieldError.InvalidPhoneLength -> stringResource(R.string.phone_length_error)
+        AuthFieldError.InvalidRegistrationData -> stringResource(R.string.register_error_bad_request)
+        AuthFieldError.EmailAlreadyRegistered -> stringResource(R.string.register_error_email_exists)
         AuthFieldError.EndpointNotFound -> stringResource(R.string.auth_error_endpoint_not_found)
         AuthFieldError.ServerError -> stringResource(R.string.auth_error_server)
         AuthFieldError.Timeout -> stringResource(R.string.auth_error_timeout)

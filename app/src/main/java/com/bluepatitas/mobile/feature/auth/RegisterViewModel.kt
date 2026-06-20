@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.bluepatitas.mobile.core.util.digitsOnly
 import com.bluepatitas.mobile.core.util.hasDigitLengthInRange
 import com.bluepatitas.mobile.core.util.isValidEmail
+import com.bluepatitas.mobile.domain.model.AuthFailureReason
+import com.bluepatitas.mobile.domain.model.AuthResult
 import com.bluepatitas.mobile.domain.model.RegisterAdminForm
 import com.bluepatitas.mobile.domain.usecase.RegisterAdminUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,7 +27,9 @@ data class RegisterUiState(
     val confirmPasswordVisible: Boolean = false,
     val acceptedTerms: Boolean = false,
     val errors: Map<String, AuthFieldError> = emptyMap(),
+    val formError: AuthFieldError? = null,
     val isSubmitting: Boolean = false,
+    val successMessageVisible: Boolean = false,
     val completed: Boolean = false
 )
 
@@ -49,7 +53,9 @@ class RegisterViewModel @Inject constructor(
                 phone = if (field == "phone") sanitizedValue else state.phone,
                 password = if (field == "password") sanitizedValue else state.password,
                 confirmPassword = if (field == "confirmPassword") sanitizedValue else state.confirmPassword,
-                errors = state.errors - field
+                errors = state.errors - field,
+                formError = null,
+                successMessageVisible = false
             )
         }
     }
@@ -67,7 +73,7 @@ class RegisterViewModel @Inject constructor(
     }
 
     fun clearCompleted() {
-        _uiState.update { it.copy(completed = false) }
+        _uiState.update { it.copy(completed = false, successMessageVisible = false) }
     }
 
     fun submit() {
@@ -98,8 +104,8 @@ class RegisterViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true) }
-            registerAdminUseCase(
+            _uiState.update { it.copy(isSubmitting = true, formError = null, successMessageVisible = false) }
+            when (val result = registerAdminUseCase(
                 RegisterAdminForm(
                     firstName = state.firstName,
                     lastName = state.lastName,
@@ -109,8 +115,37 @@ class RegisterViewModel @Inject constructor(
                     confirmPassword = state.confirmPassword,
                     acceptedTerms = state.acceptedTerms
                 )
-            )
-            _uiState.update { it.copy(isSubmitting = false, completed = true) }
+            )) {
+                AuthResult.RegistrationSuccess -> _uiState.update {
+                    it.copy(isSubmitting = false, successMessageVisible = true, completed = true)
+                }
+
+                is AuthResult.Success -> _uiState.update {
+                    it.copy(isSubmitting = false, successMessageVisible = true, completed = true)
+                }
+
+                AuthResult.InvalidCredentials,
+                AuthResult.InvalidInvitationCode -> _uiState.update {
+                    it.copy(isSubmitting = false, formError = AuthFieldError.ConnectionError)
+                }
+
+                is AuthResult.ConnectionError -> _uiState.update {
+                    it.copy(isSubmitting = false, formError = result.toFieldError())
+                }
+            }
         }
     }
 }
+
+private fun AuthResult.ConnectionError.toFieldError(): AuthFieldError =
+    when (reason) {
+        AuthFailureReason.BadRequest -> AuthFieldError.InvalidRegistrationData
+        AuthFailureReason.Conflict -> AuthFieldError.EmailAlreadyRegistered
+        AuthFailureReason.EndpointNotFound -> AuthFieldError.EndpointNotFound
+        AuthFailureReason.ServerError -> AuthFieldError.ServerError
+        AuthFailureReason.Timeout -> AuthFieldError.Timeout
+        AuthFailureReason.Network -> AuthFieldError.Network
+        AuthFailureReason.Serialization -> AuthFieldError.ResponseFormat
+        AuthFailureReason.MissingRole -> AuthFieldError.MissingRole
+        AuthFailureReason.Unknown -> AuthFieldError.ConnectionError
+    }

@@ -4,6 +4,7 @@ import android.util.Log
 import com.bluepatitas.mobile.data.remote.BluePatitasApi
 import com.bluepatitas.mobile.data.remote.auth.AuthenticatedUserDto
 import com.bluepatitas.mobile.data.remote.auth.SignInRequest
+import com.bluepatitas.mobile.data.remote.auth.SignUpRequestDto
 import com.bluepatitas.mobile.domain.model.AppSession
 import com.bluepatitas.mobile.domain.model.AuthFailureReason
 import com.bluepatitas.mobile.domain.model.AuthResult
@@ -121,7 +122,76 @@ class RealAuthRepository @Inject constructor(
         }
 
     override suspend fun registerAdmin(form: RegisterAdminForm): AuthResult =
-        fakeAuthRepository.registerAdmin(form)
+        try {
+            val response = api.signUp(
+                SignUpRequestDto(
+                    firstName = form.firstName.trim(),
+                    lastName = form.lastName.trim(),
+                    email = form.email.trim(),
+                    phoneNumber = form.phone.trim(),
+                    password = form.password,
+                    role = ShelterAdminRole
+                )
+            )
+            if (response.isSuccessful) {
+                AuthResult.RegistrationSuccess
+            } else {
+                val reason = "Sign-up failed: HTTP ${response.code()}."
+                Log.e("BluePatitasAuth", reason)
+                AuthResult.ConnectionError(
+                    reason = when (response.code()) {
+                        400 -> AuthFailureReason.BadRequest
+                        409 -> AuthFailureReason.Conflict
+                        404 -> AuthFailureReason.EndpointNotFound
+                        500 -> AuthFailureReason.ServerError
+                        else -> AuthFailureReason.Unknown
+                    },
+                    message = reason
+                )
+            }
+        } catch (exception: HttpException) {
+            val code = exception.code()
+            val reason = "Sign-up failed: HTTP $code."
+            Log.e("BluePatitasAuth", reason, exception)
+            AuthResult.ConnectionError(
+                reason = when (code) {
+                    400 -> AuthFailureReason.BadRequest
+                    409 -> AuthFailureReason.Conflict
+                    404 -> AuthFailureReason.EndpointNotFound
+                    500 -> AuthFailureReason.ServerError
+                    else -> AuthFailureReason.Unknown
+                },
+                message = reason
+            )
+        } catch (exception: JsonParseException) {
+            val reason = "Sign-up JSON parse error = response does not match DTO."
+            Log.e("BluePatitasAuth", reason, exception)
+            AuthResult.ConnectionError(AuthFailureReason.Serialization, reason)
+        } catch (exception: MalformedJsonException) {
+            val reason = "Sign-up malformed JSON response from backend."
+            Log.e("BluePatitasAuth", reason, exception)
+            AuthResult.ConnectionError(AuthFailureReason.Serialization, reason)
+        } catch (exception: SocketTimeoutException) {
+            val reason = "Sign-up timeout = Render may be waking up or backend took too long."
+            Log.e("BluePatitasAuth", reason, exception)
+            AuthResult.ConnectionError(AuthFailureReason.Timeout, reason)
+        } catch (exception: UnknownHostException) {
+            val reason = "Sign-up UnknownHost = no internet, DNS failure, or backend unreachable."
+            Log.e("BluePatitasAuth", reason, exception)
+            AuthResult.ConnectionError(AuthFailureReason.Network, reason)
+        } catch (exception: SSLException) {
+            val reason = "Sign-up SSL = certificate or secure connection problem."
+            Log.e("BluePatitasAuth", reason, exception)
+            AuthResult.ConnectionError(AuthFailureReason.Network, reason)
+        } catch (exception: IOException) {
+            val reason = "Sign-up IO = internet problem or backend unreachable."
+            Log.e("BluePatitasAuth", reason, exception)
+            AuthResult.ConnectionError(AuthFailureReason.Network, reason)
+        } catch (exception: RuntimeException) {
+            val reason = "Sign-up unexpected error: ${exception.message}"
+            Log.e("BluePatitasAuth", reason, exception)
+            AuthResult.ConnectionError(AuthFailureReason.Unknown, reason)
+        }
 
     override suspend fun acceptInvitation(form: InvitationForm): AuthResult =
         fakeAuthRepository.acceptInvitation(form)
@@ -175,3 +245,5 @@ private fun String.toUserRoleOrNull(): UserRole? {
 private class MissingRoleException : IllegalArgumentException("Missing or unsupported user role")
 
 private class InvalidAuthPayloadException(message: String) : IllegalArgumentException(message)
+
+private const val ShelterAdminRole = "ROLE_SHELTER_ADMIN"

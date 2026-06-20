@@ -53,18 +53,8 @@ class FakeAuthRepository @Inject constructor(
         return AuthResult.Success(session)
     }
 
-    override suspend fun registerAdmin(form: RegisterAdminForm): AuthResult {
-        val session = AppSession(
-            userId = "registered-admin",
-            displayName = "${form.firstName.trim()} ${form.lastName.trim()}".trim(),
-            email = form.email.trim(),
-            role = UserRole.SHELTER_ADMIN,
-            shelterId = null,
-            onboardingCompleted = false
-        )
-        sessionRepository.startSession(session)
-        return AuthResult.Success(session)
-    }
+    override suspend fun registerAdmin(form: RegisterAdminForm): AuthResult =
+        AuthResult.RegistrationSuccess
 
     override suspend fun acceptInvitation(form: InvitationForm): AuthResult {
         if (form.code.trim().uppercase() != "VET-BP-2026") {

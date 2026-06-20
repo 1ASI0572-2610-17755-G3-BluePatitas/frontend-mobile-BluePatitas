@@ -38,6 +38,8 @@ enum class AuthFieldError {
     InvalidCredentials,
     InvalidInvitationCode,
     InvalidPhoneLength,
+    InvalidRegistrationData,
+    EmailAlreadyRegistered,
     EndpointNotFound,
     ServerError,
     Timeout,
@@ -114,6 +116,7 @@ class LoginViewModel @Inject constructor(
                     _uiState.update { it.copy(isSubmitting = false, destination = destination) }
                 }
 
+                AuthResult.RegistrationSuccess -> Unit
                 AuthResult.InvalidInvitationCode -> Unit
                 is AuthResult.ConnectionError -> _uiState.update {
                     it.copy(isSubmitting = false, formError = result.toFieldError())
@@ -125,6 +128,8 @@ class LoginViewModel @Inject constructor(
 
 private fun AuthResult.ConnectionError.toFieldError(): AuthFieldError =
     when (reason) {
+        AuthFailureReason.BadRequest -> AuthFieldError.ConnectionError
+        AuthFailureReason.Conflict -> AuthFieldError.ConnectionError
         AuthFailureReason.EndpointNotFound -> AuthFieldError.EndpointNotFound
         AuthFailureReason.ServerError -> AuthFieldError.ServerError
         AuthFailureReason.Timeout -> AuthFieldError.Timeout

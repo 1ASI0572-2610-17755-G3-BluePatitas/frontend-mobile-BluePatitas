@@ -136,7 +136,7 @@ fun BluePatitasApp(
                 }
                 composable(AppRoute.Register.route) {
                     RegisterRoute(
-                        onCompleted = { navigateAndClear(AppRoute.ShelterGraph.route) },
+                        onCompleted = { navigateAndClear(AppRoute.Login.route) },
                         onLogin = { navController.navigate(AppRoute.Login.route) }
                     )
                 }

@@ -3,6 +3,7 @@ package com.bluepatitas.mobile.data.remote
 import com.bluepatitas.mobile.data.remote.animal.AnimalDto
 import com.bluepatitas.mobile.data.remote.auth.AuthenticatedUserDto
 import com.bluepatitas.mobile.data.remote.auth.SignInRequest
+import com.bluepatitas.mobile.data.remote.auth.SignUpRequestDto
 import com.bluepatitas.mobile.data.remote.auth.UserDto
 import com.bluepatitas.mobile.data.remote.monitoring.MonitoringZoneDto
 import com.bluepatitas.mobile.data.remote.monitoring.PerimeterAlertDto
@@ -13,10 +14,14 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.Response
 
 interface BluePatitasApi {
     @POST("api/v1/authentication/sign-in")
     suspend fun signIn(@Body request: SignInRequest): AuthenticatedUserDto
+
+    @POST("api/v1/authentication/sign-up")
+    suspend fun signUp(@Body request: SignUpRequestDto): Response<Unit>
 
     @GET("api/v1/users/{userId}")
     suspend fun getUserById(

@@ -7,6 +7,15 @@ data class SignInRequest(
     val password: String
 )
 
+data class SignUpRequestDto(
+    val firstName: String,
+    val lastName: String,
+    val email: String,
+    val phoneNumber: String,
+    val password: String,
+    val role: String
+)
+
 data class AuthenticatedUserDto(
     val id: String,
     val firstName: String?,

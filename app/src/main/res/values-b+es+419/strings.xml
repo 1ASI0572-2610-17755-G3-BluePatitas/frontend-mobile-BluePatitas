@@ -52,6 +52,9 @@
     <string name="accept_terms">Acepto los Términos y la Política de Privacidad.</string>
     <string name="create_account">Crear cuenta</string>
     <string name="have_account_sign_in">¿Ya tienes cuenta? Inicia sesión</string>
+    <string name="register_success_login">Cuenta creada correctamente. Redirigiendo al inicio de sesión.</string>
+    <string name="register_error_bad_request">Revisa los datos de registro e intenta nuevamente.</string>
+    <string name="register_error_email_exists">Este correo ya está registrado.</string>
 
     <string name="forgot_password_title">Recuperar acceso</string>
     <string name="forgot_password_subtitle">Ingresa tu correo para simular un enlace de recuperación.</string>

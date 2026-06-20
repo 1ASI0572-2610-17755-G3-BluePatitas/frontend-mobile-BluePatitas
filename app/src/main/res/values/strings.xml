@@ -52,6 +52,9 @@
     <string name="accept_terms">I accept the Terms and Privacy Policy.</string>
     <string name="create_account">Create account</string>
     <string name="have_account_sign_in">Already have an account? Sign in</string>
+    <string name="register_success_login">Account created successfully. Redirecting to sign in.</string>
+    <string name="register_error_bad_request">Check the registration data and try again.</string>
+    <string name="register_error_email_exists">This email is already registered.</string>
 
     <string name="forgot_password_title">Recover access</string>
     <string name="forgot_password_subtitle">Enter your email to simulate a recovery link.</string>
