@@ -14,6 +14,7 @@ sealed interface AuthResult {
 enum class AuthFailureReason {
     BadRequest,
     Conflict,
+    SessionExpired,
     EndpointNotFound,
     ServerError,
     Timeout,

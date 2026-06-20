@@ -114,7 +114,18 @@ fun ShelterLocationScreen(
         BluePatitasTextField(state.draft.reference, { onFieldChange("reference", it) }, stringResource(R.string.reference))
         BluePatitasTextField(state.draft.district, { onFieldChange("district", it) }, stringResource(R.string.district_or_area), error = state.errors["district"]?.asString())
         BluePatitasTextField(state.draft.city, { onFieldChange("city", it) }, stringResource(R.string.city), error = state.errors["city"]?.asString())
-        BluePatitasPrimaryButton(text = stringResource(R.string.create_shelter), onClick = onCreateShelter)
+        state.formError?.let { error ->
+            Text(
+                text = error.asString(),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        BluePatitasPrimaryButton(
+            text = stringResource(R.string.create_shelter),
+            onClick = onCreateShelter,
+            enabled = !state.isSubmitting
+        )
         BluePatitasOutlinedButton(text = stringResource(R.string.back), onClick = onBack)
     }
 }
@@ -175,4 +186,13 @@ private fun AuthFieldErrorBridge.asString(): String =
         AuthFieldErrorBridge.InvalidEmail -> stringResource(R.string.invalid_email)
         AuthFieldErrorBridge.InvalidPhoneLength -> stringResource(R.string.phone_length_error)
         AuthFieldErrorBridge.InvalidTaxIdLength -> stringResource(R.string.tax_id_length_error)
+        AuthFieldErrorBridge.InvalidShelterData -> stringResource(R.string.shelter_error_bad_request)
+        AuthFieldErrorBridge.ShelterAlreadyExists -> stringResource(R.string.shelter_error_conflict)
+        AuthFieldErrorBridge.SessionExpired -> stringResource(R.string.shelter_error_session_expired)
+        AuthFieldErrorBridge.EndpointNotFound -> stringResource(R.string.auth_error_endpoint_not_found)
+        AuthFieldErrorBridge.ServerError -> stringResource(R.string.auth_error_server)
+        AuthFieldErrorBridge.Timeout -> stringResource(R.string.auth_error_timeout)
+        AuthFieldErrorBridge.Network -> stringResource(R.string.auth_error_network)
+        AuthFieldErrorBridge.ResponseFormat -> stringResource(R.string.auth_error_response_format)
+        AuthFieldErrorBridge.Unknown -> stringResource(R.string.connection_error)
     }

@@ -141,6 +141,7 @@ private fun AuthResult.ConnectionError.toFieldError(): AuthFieldError =
     when (reason) {
         AuthFailureReason.BadRequest -> AuthFieldError.InvalidRegistrationData
         AuthFailureReason.Conflict -> AuthFieldError.EmailAlreadyRegistered
+        AuthFailureReason.SessionExpired -> AuthFieldError.ConnectionError
         AuthFailureReason.EndpointNotFound -> AuthFieldError.EndpointNotFound
         AuthFailureReason.ServerError -> AuthFieldError.ServerError
         AuthFailureReason.Timeout -> AuthFieldError.Timeout

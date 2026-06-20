@@ -490,5 +490,6 @@ fun AuthFieldError.asString(): String =
         AuthFieldError.Network -> stringResource(R.string.auth_error_network)
         AuthFieldError.ResponseFormat -> stringResource(R.string.auth_error_response_format)
         AuthFieldError.MissingRole -> stringResource(R.string.auth_error_missing_role)
+        AuthFieldError.SessionExpired -> stringResource(R.string.auth_error_session_expired)
         AuthFieldError.ConnectionError -> stringResource(R.string.connection_error)
     }

@@ -7,6 +7,8 @@ import com.bluepatitas.mobile.domain.model.AuthFailureReason
 import com.bluepatitas.mobile.domain.model.AuthResult
 import com.bluepatitas.mobile.domain.model.LoginCredentials
 import com.bluepatitas.mobile.domain.model.UserRole
+import com.bluepatitas.mobile.domain.usecase.SyncShelterFromBackendUseCase
+import com.bluepatitas.mobile.data.repository.ShelterRepositoryException
 import com.bluepatitas.mobile.domain.usecase.LoginUseCase
 import com.bluepatitas.mobile.domain.usecase.ObserveShelterUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -46,6 +48,7 @@ enum class AuthFieldError {
     Network,
     ResponseFormat,
     MissingRole,
+    SessionExpired,
     ConnectionError
 }
 
@@ -58,7 +61,8 @@ sealed interface LoginDestination {
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
-    private val observeShelterUseCase: ObserveShelterUseCase
+    private val observeShelterUseCase: ObserveShelterUseCase,
+    private val syncShelterFromBackendUseCase: SyncShelterFromBackendUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -104,12 +108,30 @@ class LoginViewModel @Inject constructor(
                     val destination = when (result.session.role) {
                         UserRole.VETERINARIAN -> LoginDestination.VeterinarianMain
                         UserRole.SHELTER_ADMIN -> {
-                            val shelter = observeShelterUseCase().first()
                             val isBackendSession = !result.session.token.isNullOrBlank()
-                            if (result.session.onboardingCompleted || (!isBackendSession && shelter != null)) {
+                            if (result.session.onboardingCompleted) {
                                 LoginDestination.AdminMain
+                            } else if (isBackendSession) {
+                                val syncedShelter = try {
+                                    syncShelterFromBackendUseCase()
+                                } catch (exception: ShelterRepositoryException) {
+                                    _uiState.update {
+                                        it.copy(isSubmitting = false, formError = exception.toFieldError())
+                                    }
+                                    return@launch
+                                }
+                                if (syncedShelter != null) {
+                                    LoginDestination.AdminMain
+                                } else {
+                                    LoginDestination.AdminOnboarding
+                                }
                             } else {
-                                LoginDestination.AdminOnboarding
+                                val shelter = observeShelterUseCase().first()
+                                if (shelter != null) {
+                                    LoginDestination.AdminMain
+                                } else {
+                                    LoginDestination.AdminOnboarding
+                                }
                             }
                         }
                     }
@@ -127,9 +149,16 @@ class LoginViewModel @Inject constructor(
 }
 
 private fun AuthResult.ConnectionError.toFieldError(): AuthFieldError =
-    when (reason) {
+    reason.toFieldError()
+
+private fun ShelterRepositoryException.toFieldError(): AuthFieldError =
+    reason.toFieldError()
+
+private fun AuthFailureReason.toFieldError(): AuthFieldError =
+    when (this) {
         AuthFailureReason.BadRequest -> AuthFieldError.ConnectionError
         AuthFailureReason.Conflict -> AuthFieldError.ConnectionError
+        AuthFailureReason.SessionExpired -> AuthFieldError.SessionExpired
         AuthFailureReason.EndpointNotFound -> AuthFieldError.EndpointNotFound
         AuthFailureReason.ServerError -> AuthFieldError.ServerError
         AuthFailureReason.Timeout -> AuthFieldError.Timeout

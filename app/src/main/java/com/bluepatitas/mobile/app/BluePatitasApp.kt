@@ -64,7 +64,13 @@ fun BluePatitasApp(
 
     LaunchedEffect(uiState.isLoading, uiState.session, currentRoute) {
         if (!uiState.isLoading && uiState.session == null &&
-            (currentRoute == AppRoute.AdminMain.route || currentRoute == AppRoute.VeterinarianMain.route)
+            (
+                currentRoute == AppRoute.AdminMain.route ||
+                    currentRoute == AppRoute.VeterinarianMain.route ||
+                    currentRoute == AppRoute.ShelterBasicInfo.route ||
+                    currentRoute == AppRoute.ShelterLocation.route ||
+                    currentRoute == AppRoute.ShelterConfirmation.route
+                )
         ) {
             navigateAndClear(AppRoute.Welcome.route)
         }

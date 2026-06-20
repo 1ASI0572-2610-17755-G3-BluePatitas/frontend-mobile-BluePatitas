@@ -42,6 +42,7 @@
     <string name="auth_error_network">Revisa tu conexión a internet e intenta nuevamente.</string>
     <string name="auth_error_response_format">No se pudo leer la respuesta del backend. Intenta nuevamente más tarde.</string>
     <string name="auth_error_missing_role">No se pudo confirmar el rol de tu cuenta. Contacta soporte.</string>
+    <string name="auth_error_session_expired">Tu sesión expiró. Inicia sesión nuevamente.</string>
 
     <string name="register_title">Crea tu cuenta de administrador</string>
     <string name="register_subtitle">Empieza registrando a la persona responsable del refugio.</string>
@@ -86,6 +87,9 @@
     <string name="shelter_created_title">Tu refugio ha sido creado con éxito</string>
     <string name="go_to_shelter">Ir al refugio</string>
     <string name="shelter_summary_address">%1$s, %2$s / %3$s</string>
+    <string name="shelter_error_bad_request">Revisa la información del refugio e intenta nuevamente.</string>
+    <string name="shelter_error_conflict">Este refugio ya existe. No fue posible actualizar su información.</string>
+    <string name="shelter_error_session_expired">Tu sesión expiró. Inicia sesión nuevamente para continuar.</string>
 
     <string name="required_field">Este campo es obligatorio.</string>
     <string name="invalid_email">Ingresa un correo válido.</string>

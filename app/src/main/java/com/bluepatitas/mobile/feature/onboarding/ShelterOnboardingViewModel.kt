@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.bluepatitas.mobile.core.util.digitsOnly
 import com.bluepatitas.mobile.core.util.hasDigitLengthInRange
 import com.bluepatitas.mobile.core.util.isValidEmail
+import com.bluepatitas.mobile.data.repository.ShelterRepositoryException
+import com.bluepatitas.mobile.domain.model.AuthFailureReason
 import com.bluepatitas.mobile.domain.model.ShelterDraft
 import com.bluepatitas.mobile.domain.model.ShelterProfile
 import com.bluepatitas.mobile.domain.usecase.CreateShelterUseCase
@@ -19,6 +21,8 @@ import javax.inject.Inject
 data class ShelterOnboardingUiState(
     val draft: ShelterDraft = ShelterDraft(),
     val errors: Map<String, AuthFieldErrorBridge> = emptyMap(),
+    val formError: AuthFieldErrorBridge? = null,
+    val isSubmitting: Boolean = false,
     val createdShelter: ShelterProfile? = null
 )
 
@@ -26,7 +30,16 @@ enum class AuthFieldErrorBridge {
     Required,
     InvalidEmail,
     InvalidPhoneLength,
-    InvalidTaxIdLength
+    InvalidTaxIdLength,
+    InvalidShelterData,
+    ShelterAlreadyExists,
+    SessionExpired,
+    EndpointNotFound,
+    ServerError,
+    Timeout,
+    Network,
+    ResponseFormat,
+    Unknown
 }
 
 @HiltViewModel
@@ -57,7 +70,8 @@ class ShelterOnboardingViewModel @Inject constructor(
                     "city" -> draft.copy(city = sanitizedValue)
                     else -> draft
                 },
-                errors = state.errors - field
+                errors = state.errors - field,
+                formError = null
             )
         }
     }
@@ -83,7 +97,7 @@ class ShelterOnboardingViewModel @Inject constructor(
                 }
             }
         }
-        _uiState.update { it.copy(errors = errors) }
+        _uiState.update { it.copy(errors = errors, formError = null) }
         if (errors.isEmpty()) {
             viewModelScope.launch { saveShelterDraftUseCase(draft) }
         }
@@ -97,15 +111,47 @@ class ShelterOnboardingViewModel @Inject constructor(
             if (draft.district.isBlank()) put("district", AuthFieldErrorBridge.Required)
             if (draft.city.isBlank()) put("city", AuthFieldErrorBridge.Required)
         }
-        _uiState.update { it.copy(errors = errors) }
+        _uiState.update { it.copy(errors = errors, formError = null) }
         return errors.isEmpty()
     }
 
     fun createShelter() {
         if (!validateLocation()) return
         viewModelScope.launch {
-            val shelter = createShelterUseCase(_uiState.value.draft)
-            _uiState.update { it.copy(createdShelter = shelter) }
+            _uiState.update { it.copy(isSubmitting = true, formError = null) }
+            runCatching { createShelterUseCase(_uiState.value.draft) }
+                .onSuccess { shelter ->
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            createdShelter = shelter,
+                            formError = null
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isSubmitting = false,
+                            formError = error.toFieldError()
+                        )
+                    }
+                }
         }
     }
 }
+
+private fun Throwable.toFieldError(): AuthFieldErrorBridge =
+    when ((this as? ShelterRepositoryException)?.reason) {
+        AuthFailureReason.BadRequest -> AuthFieldErrorBridge.InvalidShelterData
+        AuthFailureReason.Conflict -> AuthFieldErrorBridge.ShelterAlreadyExists
+        AuthFailureReason.SessionExpired -> AuthFieldErrorBridge.SessionExpired
+        AuthFailureReason.EndpointNotFound -> AuthFieldErrorBridge.EndpointNotFound
+        AuthFailureReason.ServerError -> AuthFieldErrorBridge.ServerError
+        AuthFailureReason.Timeout -> AuthFieldErrorBridge.Timeout
+        AuthFailureReason.Network -> AuthFieldErrorBridge.Network
+        AuthFailureReason.Serialization -> AuthFieldErrorBridge.ResponseFormat
+        AuthFailureReason.MissingRole,
+        AuthFailureReason.Unknown,
+        null -> AuthFieldErrorBridge.Unknown
+    }

@@ -7,6 +7,8 @@ import com.bluepatitas.mobile.data.remote.auth.SignUpRequestDto
 import com.bluepatitas.mobile.data.remote.auth.UserDto
 import com.bluepatitas.mobile.data.remote.monitoring.MonitoringZoneDto
 import com.bluepatitas.mobile.data.remote.monitoring.PerimeterAlertDto
+import com.bluepatitas.mobile.data.remote.shelter.ShelterDto
+import com.bluepatitas.mobile.data.remote.shelter.ShelterRequestDto
 import com.bluepatitas.mobile.data.remote.veterinary.VeterinaryAnimalDto
 import com.bluepatitas.mobile.data.remote.veterinary.VeterinaryDashboardDto
 import retrofit2.http.Body
@@ -15,6 +17,7 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.Response
+import retrofit2.http.PUT
 
 interface BluePatitasApi {
     @POST("api/v1/authentication/sign-in")
@@ -43,4 +46,13 @@ interface BluePatitasApi {
 
     @GET("api/monitoring/alerts")
     suspend fun getMonitoringAlerts(): List<PerimeterAlertDto>
+
+    @GET("api/monitoring/shelter")
+    suspend fun getShelter(): ShelterDto
+
+    @POST("api/monitoring/shelter")
+    suspend fun createShelter(@Body request: ShelterRequestDto): Response<ShelterDto>
+
+    @PUT("api/monitoring/shelter")
+    suspend fun updateShelter(@Body request: ShelterRequestDto): Response<ShelterDto>
 }
