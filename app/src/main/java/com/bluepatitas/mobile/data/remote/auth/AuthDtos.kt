@@ -8,10 +8,11 @@ data class SignInRequest(
 )
 
 data class AuthenticatedUserDto(
-    val id: Long,
+    val id: String,
     val firstName: String?,
     val lastName: String?,
     val email: String,
+    @SerializedName(value = "token", alternate = ["accessToken", "jwt"])
     val token: String,
     val shelterId: String?,
     val role: String?,
@@ -22,11 +23,10 @@ data class AuthenticatedUserDto(
 )
 
 data class UserDto(
-    val id: Long,
+    val id: String,
     val firstName: String?,
     val lastName: String?,
     val email: String,
     val phoneNumber: String?,
     val roles: List<String>?
 )
-

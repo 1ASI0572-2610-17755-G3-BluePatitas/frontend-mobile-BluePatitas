@@ -20,7 +20,7 @@ interface BluePatitasApi {
 
     @GET("api/v1/users/{userId}")
     suspend fun getUserById(
-        @Path("userId") userId: Long,
+        @Path("userId") userId: String,
         @Header("Authorization") authorizationHeader: String
     ): UserDto
 

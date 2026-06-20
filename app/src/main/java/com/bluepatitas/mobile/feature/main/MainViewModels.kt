@@ -81,12 +81,16 @@ class MainDataViewModel @Inject constructor(
                 is BluePatitasResult.Success -> result.value
                 is BluePatitasResult.Error -> fallbackZones()
             }
+            var alertsFailed = false
             val alerts = when (val result = getMonitoringAlertsUseCase()) {
                 is BluePatitasResult.Success -> result.value
-                is BluePatitasResult.Error -> emptyList()
+                is BluePatitasResult.Error -> {
+                    alertsFailed = true
+                    emptyList()
+                }
             }
             val animalFallback = animals === fallbackAnimalsReference
-            val monitoringFallback = zones === fallbackZonesReference
+            val monitoringFallback = zones === fallbackZonesReference || alertsFailed
             remoteState.update {
                 it.copy(
                     isLoading = false,

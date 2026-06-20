@@ -1,16 +1,20 @@
 package com.bluepatitas.mobile.app
 
+import android.content.pm.ApplicationInfo
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.bluepatitas.mobile.core.designsystem.theme.BluePatitasTheme
@@ -36,7 +40,12 @@ fun BluePatitasApp(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val navController = rememberNavController()
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val activeLanguage = activeLanguageFromResources()
+    val context = LocalContext.current
+    val showDeveloperAccess = remember(context) {
+        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
 
     fun navigateAndClear(route: String) {
         navController.navigate(route) {
@@ -44,6 +53,20 @@ fun BluePatitasApp(
                 inclusive = true
             }
             launchSingleTop = true
+        }
+    }
+
+    fun adminSessionGoesToMain(): Boolean {
+        val session = uiState.session ?: return false
+        val isBackendSession = !session.token.isNullOrBlank()
+        return session.onboardingCompleted || (!isBackendSession && uiState.shelter != null)
+    }
+
+    LaunchedEffect(uiState.isLoading, uiState.session, currentRoute) {
+        if (!uiState.isLoading && uiState.session == null &&
+            (currentRoute == AppRoute.AdminMain.route || currentRoute == AppRoute.VeterinarianMain.route)
+        ) {
+            navigateAndClear(AppRoute.Welcome.route)
         }
     }
 
@@ -61,7 +84,7 @@ fun BluePatitasApp(
                             val session = uiState.session
                             val nextRoute = when (session?.role) {
                                 UserRole.SHELTER_ADMIN -> {
-                                    if (session.onboardingCompleted || uiState.shelter != null) {
+                                    if (adminSessionGoesToMain()) {
                                         AppRoute.AdminMain.route
                                     } else {
                                         AppRoute.ShelterGraph.route
@@ -82,7 +105,8 @@ fun BluePatitasApp(
                         onInvitation = { navController.navigate(AppRoute.Invitation.route) },
                         onDeveloperAccess = { navController.navigate(AppRoute.DeveloperEntry.route) },
                         selectedLanguage = activeLanguage,
-                        onLanguageSelected = viewModel::selectLanguage
+                        onLanguageSelected = viewModel::selectLanguage,
+                        showDeveloperAccess = showDeveloperAccess
                     )
                 }
                 composable(AppRoute.DeveloperEntry.route) {

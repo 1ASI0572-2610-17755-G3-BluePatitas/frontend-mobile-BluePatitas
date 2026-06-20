@@ -974,7 +974,7 @@ private fun FallbackBanner(onRetry: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "💡 " + stringResource(R.string.simulated_for_presentation),
+                text = stringResource(R.string.simulated_for_presentation),
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFFE65100),

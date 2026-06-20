@@ -1,11 +1,11 @@
 package com.bluepatitas.mobile.data.repository
 
 import android.util.Log
-import com.bluepatitas.mobile.core.network.NetworkModule
 import com.bluepatitas.mobile.data.remote.BluePatitasApi
 import com.bluepatitas.mobile.data.remote.auth.AuthenticatedUserDto
 import com.bluepatitas.mobile.data.remote.auth.SignInRequest
 import com.bluepatitas.mobile.domain.model.AppSession
+import com.bluepatitas.mobile.domain.model.AuthFailureReason
 import com.bluepatitas.mobile.domain.model.AuthResult
 import com.bluepatitas.mobile.domain.model.InvitationForm
 import com.bluepatitas.mobile.domain.model.LoginCredentials
@@ -13,10 +13,15 @@ import com.bluepatitas.mobile.domain.model.RegisterAdminForm
 import com.bluepatitas.mobile.domain.model.UserRole
 import com.bluepatitas.mobile.domain.repository.AuthRepository
 import com.bluepatitas.mobile.domain.repository.SessionRepository
-import retrofit2.HttpException
+import com.google.gson.JsonParseException
+import com.google.gson.stream.MalformedJsonException
 import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.net.ssl.SSLException
+import retrofit2.HttpException
 
 @Singleton
 class RealAuthRepository @Inject constructor(
@@ -34,58 +39,85 @@ class RealAuthRepository @Inject constructor(
                 )
             )
 
-            val roles = if (!user.role.isNullOrBlank()) {
-                listOf(user.role)
-            } else if (!user.roles.isNullOrEmpty()) {
-                user.roles
-            } else {
+            val loginRoles = buildList {
+                user.role?.takeIf { it.isNotBlank() }?.let(::add)
+                addAll(user.roles.orEmpty().filter { it.isNotBlank() })
+            }
+
+            val roles = loginRoles.ifEmpty {
                 try {
                     val userProfile = api.getUserById(user.id, "Bearer ${user.token}")
                     userProfile.roles.orEmpty()
-                } catch (e: Exception) {
-                    Log.e("BluePatitasAuth", "Failed to fetch user roles for ID ${user.id}", e)
+                } catch (exception: Exception) {
+                    Log.e("BluePatitasAuth", "Failed to fetch user roles for ID ${user.id}", exception)
                     emptyList()
                 }
             }
 
-            val updatedUser = user.copy(
+            val session = user.copy(
                 roles = roles,
                 role = roles.firstOrNull()
-            )
+            ).toSession()
 
-            val session = updatedUser.toSession()
             sessionRepository.startSession(session)
             AuthResult.Success(session)
         } catch (exception: HttpException) {
             val code = exception.code()
             val reason = when (code) {
-                401, 403 -> "401/403 = credenciales inválidas o usuario no existe en Render."
-                404 -> "404 = endpoint incorrecto."
-                500 -> "500 = error interno del backend."
-                else -> "HTTP $code = error de servidor."
+                401, 403 -> "401/403 = invalid credentials or user without permissions."
+                404 -> "404 = authentication endpoint not found."
+                500 -> "500 = backend internal error."
+                else -> "HTTP $code = backend error."
             }
             Log.e("BluePatitasAuth", "Login failed: $reason", exception)
             if (code == 401 || code == 403) {
                 AuthResult.InvalidCredentials
             } else {
-                AuthResult.ConnectionError(reason)
+                AuthResult.ConnectionError(
+                    reason = when (code) {
+                        404 -> AuthFailureReason.EndpointNotFound
+                        500 -> AuthFailureReason.ServerError
+                        else -> AuthFailureReason.Unknown
+                    },
+                    message = reason
+                )
             }
-        } catch (exception: com.google.gson.JsonSyntaxException) {
-            val reason = "JSON parse error = DTO incorrecto."
+        } catch (exception: MissingRoleException) {
+            val reason = "Missing or unsupported role in authentication response."
             Log.e("BluePatitasAuth", "Login failed: $reason", exception)
-            AuthResult.ConnectionError(reason)
-        } catch (exception: java.net.SocketTimeoutException) {
-            val reason = "timeout = Render dormido o problema de red."
+            AuthResult.ConnectionError(AuthFailureReason.MissingRole, reason)
+        } catch (exception: InvalidAuthPayloadException) {
+            val reason = exception.message ?: "Invalid authentication payload."
             Log.e("BluePatitasAuth", "Login failed: $reason", exception)
-            AuthResult.ConnectionError(reason)
+            AuthResult.ConnectionError(AuthFailureReason.Serialization, reason)
+        } catch (exception: JsonParseException) {
+            val reason = "JSON parse error = response does not match DTO."
+            Log.e("BluePatitasAuth", "Login failed: $reason", exception)
+            AuthResult.ConnectionError(AuthFailureReason.Serialization, reason)
+        } catch (exception: MalformedJsonException) {
+            val reason = "Malformed JSON response from backend."
+            Log.e("BluePatitasAuth", "Login failed: $reason", exception)
+            AuthResult.ConnectionError(AuthFailureReason.Serialization, reason)
+        } catch (exception: SocketTimeoutException) {
+            val reason = "Timeout = Render may be waking up or backend took too long."
+            Log.e("BluePatitasAuth", "Login failed: $reason", exception)
+            AuthResult.ConnectionError(AuthFailureReason.Timeout, reason)
+        } catch (exception: UnknownHostException) {
+            val reason = "UnknownHost = no internet, DNS failure, or backend unreachable."
+            Log.e("BluePatitasAuth", "Login failed: $reason", exception)
+            AuthResult.ConnectionError(AuthFailureReason.Network, reason)
+        } catch (exception: SSLException) {
+            val reason = "SSL = certificate or secure connection problem."
+            Log.e("BluePatitasAuth", "Login failed: $reason", exception)
+            AuthResult.ConnectionError(AuthFailureReason.Network, reason)
         } catch (exception: IOException) {
-            val reason = "timeout = Render dormido o problema de red."
+            val reason = "IO = internet problem or backend unreachable."
             Log.e("BluePatitasAuth", "Login failed: $reason", exception)
-            AuthResult.ConnectionError(reason)
+            AuthResult.ConnectionError(AuthFailureReason.Network, reason)
         } catch (exception: IllegalArgumentException) {
             val reason = "IllegalArgumentException: ${exception.message}"
             Log.e("BluePatitasAuth", "Login failed: $reason", exception)
-            AuthResult.ConnectionError(reason)
+            AuthResult.ConnectionError(AuthFailureReason.Unknown, reason)
         }
 
     override suspend fun registerAdmin(form: RegisterAdminForm): AuthResult =
@@ -96,9 +128,16 @@ class RealAuthRepository @Inject constructor(
 }
 
 private fun AuthenticatedUserDto.toSession(): AppSession {
-    val resolvedRole = role
-        ?: roles.orEmpty().firstOrNull()
-        ?: throw IllegalArgumentException("Missing user role")
+    if (token.isBlank()) {
+        throw InvalidAuthPayloadException("Missing token in authentication response")
+    }
+
+    val resolvedRole = buildList {
+        role?.let(::add)
+        addAll(roles.orEmpty())
+    }.firstNotNullOfOrNull { it.toUserRoleOrNull() }
+        ?: throw MissingRoleException()
+
     val first = firstName.orEmpty()
     val last = lastName.orEmpty()
     val name = listOf(first, last)
@@ -107,15 +146,32 @@ private fun AuthenticatedUserDto.toSession(): AppSession {
         .ifBlank { email }
 
     return AppSession(
-        userId = id.toString(),
+        userId = id,
         firstName = first,
         lastName = last,
         displayName = name,
         email = email,
         token = token,
-        role = UserRole.valueOf(resolvedRole.removePrefix("ROLE_").uppercase()),
+        role = resolvedRole,
         shelterId = shelterId,
         shelterName = shelterName,
         onboardingCompleted = onboardingCompleted == true
     )
 }
+
+private fun String.toUserRoleOrNull(): UserRole? {
+    val normalized = trim()
+        .removePrefix("ROLE_")
+        .replace("-", "_")
+        .replace(" ", "_")
+        .uppercase()
+    return when (normalized) {
+        "SHELTER_ADMIN", "ADMIN", "ADMINISTRATOR", "SHELTERADMIN" -> UserRole.SHELTER_ADMIN
+        "VETERINARIAN", "VET", "VETERINARY" -> UserRole.VETERINARIAN
+        else -> null
+    }
+}
+
+private class MissingRoleException : IllegalArgumentException("Missing or unsupported user role")
+
+private class InvalidAuthPayloadException(message: String) : IllegalArgumentException(message)

@@ -3,6 +3,7 @@ package com.bluepatitas.mobile.feature.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bluepatitas.mobile.core.util.isValidEmail
+import com.bluepatitas.mobile.domain.model.AuthFailureReason
 import com.bluepatitas.mobile.domain.model.AuthResult
 import com.bluepatitas.mobile.domain.model.LoginCredentials
 import com.bluepatitas.mobile.domain.model.UserRole
@@ -37,6 +38,12 @@ enum class AuthFieldError {
     InvalidCredentials,
     InvalidInvitationCode,
     InvalidPhoneLength,
+    EndpointNotFound,
+    ServerError,
+    Timeout,
+    Network,
+    ResponseFormat,
+    MissingRole,
     ConnectionError
 }
 
@@ -96,7 +103,8 @@ class LoginViewModel @Inject constructor(
                         UserRole.VETERINARIAN -> LoginDestination.VeterinarianMain
                         UserRole.SHELTER_ADMIN -> {
                             val shelter = observeShelterUseCase().first()
-                            if (result.session.onboardingCompleted || shelter != null) {
+                            val isBackendSession = !result.session.token.isNullOrBlank()
+                            if (result.session.onboardingCompleted || (!isBackendSession && shelter != null)) {
                                 LoginDestination.AdminMain
                             } else {
                                 LoginDestination.AdminOnboarding
@@ -108,9 +116,20 @@ class LoginViewModel @Inject constructor(
 
                 AuthResult.InvalidInvitationCode -> Unit
                 is AuthResult.ConnectionError -> _uiState.update {
-                    it.copy(isSubmitting = false, formError = AuthFieldError.ConnectionError)
+                    it.copy(isSubmitting = false, formError = result.toFieldError())
                 }
             }
         }
     }
 }
+
+private fun AuthResult.ConnectionError.toFieldError(): AuthFieldError =
+    when (reason) {
+        AuthFailureReason.EndpointNotFound -> AuthFieldError.EndpointNotFound
+        AuthFailureReason.ServerError -> AuthFieldError.ServerError
+        AuthFailureReason.Timeout -> AuthFieldError.Timeout
+        AuthFailureReason.Network -> AuthFieldError.Network
+        AuthFailureReason.Serialization -> AuthFieldError.ResponseFormat
+        AuthFailureReason.MissingRole -> AuthFieldError.MissingRole
+        AuthFailureReason.Unknown -> AuthFieldError.ConnectionError
+    }

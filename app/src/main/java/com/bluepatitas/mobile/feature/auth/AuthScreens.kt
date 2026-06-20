@@ -108,6 +108,7 @@ fun WelcomeScreen(
     onDeveloperAccess: () -> Unit,
     selectedLanguage: AppLanguage,
     onLanguageSelected: (AppLanguage) -> Unit,
+    showDeveloperAccess: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val illustrationDescription = stringResource(R.string.shelter_iot_illustration_description)
@@ -160,8 +161,10 @@ fun WelcomeScreen(
             selectedLanguage = selectedLanguage,
             onLanguageSelected = onLanguageSelected
         )
-        TextButton(onClick = onDeveloperAccess) {
-            Text(text = stringResource(R.string.development_access), style = MaterialTheme.typography.labelMedium)
+        if (showDeveloperAccess) {
+            TextButton(onClick = onDeveloperAccess) {
+                Text(text = stringResource(R.string.development_access), style = MaterialTheme.typography.labelMedium)
+            }
         }
     }
 }
@@ -462,5 +465,11 @@ fun AuthFieldError.asString(): String =
         AuthFieldError.InvalidCredentials -> stringResource(R.string.invalid_credentials)
         AuthFieldError.InvalidInvitationCode -> stringResource(R.string.invalid_invitation_code)
         AuthFieldError.InvalidPhoneLength -> stringResource(R.string.phone_length_error)
+        AuthFieldError.EndpointNotFound -> stringResource(R.string.auth_error_endpoint_not_found)
+        AuthFieldError.ServerError -> stringResource(R.string.auth_error_server)
+        AuthFieldError.Timeout -> stringResource(R.string.auth_error_timeout)
+        AuthFieldError.Network -> stringResource(R.string.auth_error_network)
+        AuthFieldError.ResponseFormat -> stringResource(R.string.auth_error_response_format)
+        AuthFieldError.MissingRole -> stringResource(R.string.auth_error_missing_role)
         AuthFieldError.ConnectionError -> stringResource(R.string.connection_error)
     }

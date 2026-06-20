@@ -36,6 +36,12 @@
     <string name="create_admin_account">Crear cuenta de administrador</string>
     <string name="invalid_credentials">Correo o contraseña inválidos.</string>
     <string name="connection_error">No se pudo conectar con el backend. Verifica que esté levantado e intenta nuevamente.</string>
+    <string name="auth_error_endpoint_not_found">No se encontró el endpoint de autenticación. Intenta nuevamente más tarde.</string>
+    <string name="auth_error_server">El backend tuvo un error interno. Intenta nuevamente más tarde.</string>
+    <string name="auth_error_timeout">El backend demoró demasiado en responder. Render puede estar despertando; intenta en un momento.</string>
+    <string name="auth_error_network">Revisa tu conexión a internet e intenta nuevamente.</string>
+    <string name="auth_error_response_format">No se pudo leer la respuesta del backend. Intenta nuevamente más tarde.</string>
+    <string name="auth_error_missing_role">No se pudo confirmar el rol de tu cuenta. Contacta soporte.</string>
 
     <string name="register_title">Crea tu cuenta de administrador</string>
     <string name="register_subtitle">Empieza registrando a la persona responsable del refugio.</string>
@@ -140,7 +146,7 @@
     <string name="admin_animals_subtitle">Gestiona los animales registrados en tu refugio.</string>
     <string name="animal_weight_zone">Peso: %1$s kg • Zona: %2$s</string>
     <string name="no_animals_available">No hay animales disponibles por ahora.</string>
-    <string name="simulated_for_presentation">Simulado para presentación</string>
+    <string name="simulated_for_presentation">No se cargaron datos del backend. Mostrando datos demo/offline.</string>
     <string name="monitoring_subtitle">Monitorea zonas, ambiente, cámara y alertas de seguridad.</string>
     <string name="animal_monitoring">Monitoreo animal</string>
     <string name="camera_permission_required">Se requiere permiso de cámara para usar la vista previa del celular.</string>

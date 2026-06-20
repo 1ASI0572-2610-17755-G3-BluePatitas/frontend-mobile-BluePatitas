@@ -36,6 +36,12 @@
     <string name="create_admin_account">Create administrator account</string>
     <string name="invalid_credentials">Invalid email or password.</string>
     <string name="connection_error">Could not connect to the backend. Check that it is running and try again.</string>
+    <string name="auth_error_endpoint_not_found">Authentication endpoint was not found. Please try again later.</string>
+    <string name="auth_error_server">The backend had an internal error. Please try again later.</string>
+    <string name="auth_error_timeout">The backend took too long to respond. Render may be waking up; try again in a moment.</string>
+    <string name="auth_error_network">Check your internet connection and try again.</string>
+    <string name="auth_error_response_format">The backend response could not be read. Please try again later.</string>
+    <string name="auth_error_missing_role">Your account role could not be confirmed. Contact support.</string>
 
     <string name="register_title">Create your administrator account</string>
     <string name="register_subtitle">Start by registering the person responsible for the shelter.</string>
@@ -140,7 +146,7 @@
     <string name="admin_animals_subtitle">Manage animals registered in your shelter.</string>
     <string name="animal_weight_zone">Weight: %1$s kg • Zone: %2$s</string>
     <string name="no_animals_available">No animals available right now.</string>
-    <string name="simulated_for_presentation">Simulated for presentation</string>
+    <string name="simulated_for_presentation">No backend data loaded. Showing demo/offline data.</string>
     <string name="monitoring_subtitle">Track zones, environment, camera and safety alerts.</string>
     <string name="animal_monitoring">Animal monitoring</string>
     <string name="camera_permission_required">Camera permission is required to use phone camera preview.</string>
