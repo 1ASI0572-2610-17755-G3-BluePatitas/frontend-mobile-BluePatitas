@@ -1,6 +1,7 @@
 package com.bluepatitas.mobile.data.remote
 
 import com.bluepatitas.mobile.data.remote.animal.AnimalDto
+import com.bluepatitas.mobile.data.remote.animal.RegisterAnimalRequestDto
 import com.bluepatitas.mobile.data.remote.auth.AuthenticatedUserDto
 import com.bluepatitas.mobile.data.remote.auth.SignInRequest
 import com.bluepatitas.mobile.data.remote.auth.SignUpRequestDto
@@ -18,6 +19,7 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.Response
 import retrofit2.http.PUT
+import okhttp3.ResponseBody
 
 interface BluePatitasApi {
     @POST("api/v1/authentication/sign-in")
@@ -41,6 +43,12 @@ interface BluePatitasApi {
     @GET("api/animals")
     suspend fun getAnimals(): List<AnimalDto>
 
+    @POST("api/animals")
+    suspend fun createAnimal(@Body request: RegisterAnimalRequestDto): Response<AnimalDto>
+
+    @GET("api/animals/{id}")
+    suspend fun getAnimal(@Path("id") id: String): AnimalDto
+
     @GET("api/monitoring/zones")
     suspend fun getMonitoringZones(): List<MonitoringZoneDto>
 
@@ -49,6 +57,9 @@ interface BluePatitasApi {
 
     @GET("api/monitoring/shelter")
     suspend fun getShelter(): ShelterDto
+
+    @GET("api/monitoring/shelter")
+    suspend fun getShelterRaw(): Response<ResponseBody>
 
     @POST("api/monitoring/shelter")
     suspend fun createShelter(@Body request: ShelterRequestDto): Response<ShelterDto>

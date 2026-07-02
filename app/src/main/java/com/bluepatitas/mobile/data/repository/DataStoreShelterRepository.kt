@@ -13,7 +13,10 @@ import com.bluepatitas.mobile.domain.model.AuthFailureReason
 import com.bluepatitas.mobile.domain.model.ShelterDraft
 import com.bluepatitas.mobile.domain.model.ShelterProfile
 import com.bluepatitas.mobile.domain.repository.ShelterRepository
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import com.google.gson.JsonParseException
+import com.google.gson.JsonParser
 import com.google.gson.stream.MalformedJsonException
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -59,7 +62,11 @@ class DataStoreShelterRepository @Inject constructor(
         val remoteShelter = try {
             val createResponse = api.createShelter(request)
             if (createResponse.isSuccessful) {
-                createResponse.body() ?: api.getShelter()
+                createResponse.body() ?: fetchShelterFromBackend()
+                    ?: throw ShelterRepositoryException(
+                        AuthFailureReason.Serialization,
+                        "Shelter creation succeeded but response body was empty."
+                    )
             } else if (createResponse.shouldTryUpdate()) {
                 val updateResponse = api.updateShelter(request)
                 updateResponse.bodyOrThrow()
@@ -102,7 +109,7 @@ class DataStoreShelterRepository @Inject constructor(
     override suspend fun syncShelterFromBackend(): ShelterProfile? {
         val fallbackDraft = dataStore.data.first().toDraftFallback()
         val remoteShelter = try {
-            api.getShelter()
+            fetchShelterFromBackend() ?: return null
         } catch (exception: HttpException) {
             if (exception.code() == 404) {
                 Log.i("BluePatitasShelter", "No shelter found for current admin session.")
@@ -153,12 +160,32 @@ class DataStoreShelterRepository @Inject constructor(
 
     private suspend fun Response<ShelterDto>.bodyOrThrow(): ShelterDto =
         if (isSuccessful) {
-            body() ?: api.getShelter()
+            body() ?: fetchShelterFromBackend()
+                ?: throw ShelterRepositoryException(
+                    AuthFailureReason.Serialization,
+                    "Shelter request succeeded but response body was empty."
+                )
         } else {
             throw toShelterException()
         }
 
-    private suspend fun Response<ShelterDto>.toShelterException(): ShelterRepositoryException {
+    private suspend fun fetchShelterFromBackend(): ShelterDto? {
+        val response = api.getShelterRaw()
+        val code = response.code()
+        if (code == 404) return null
+        if (!response.isSuccessful) throw response.toShelterException()
+
+        val responseText = response.body()?.string().orEmpty()
+        if (responseText.isBlank()) return null
+
+        return responseText.toShelterDtoOrNull()
+            ?: throw ShelterRepositoryException(
+                AuthFailureReason.Serialization,
+                "Shelter response did not contain a readable shelter object."
+            )
+    }
+
+    private suspend fun Response<*>.toShelterException(): ShelterRepositoryException {
         val code = code()
         if (code == 401 || code == 403) clearStoredSession()
         val errorText = runCatching { errorBody()?.string().orEmpty() }.getOrDefault("")
@@ -290,3 +317,39 @@ private fun Preferences.toDraftFallback(): ShelterDraft =
         district = this[PreferenceKeys.ShelterDistrict].orEmpty(),
         city = this[PreferenceKeys.ShelterCity].orEmpty()
     )
+
+private fun String.toShelterDtoOrNull(): ShelterDto? {
+    val shelterObject = JsonParser.parseString(this).findShelterObject() ?: return null
+    return ShelterDto(
+        id = shelterObject.stringOrNull("id", "shelterId"),
+        name = shelterObject.stringOrNull("name", "shelterName", "legalName"),
+        city = shelterObject.stringOrNull("city"),
+        address = shelterObject.stringOrNull("address", "mainAddress"),
+        administrator = shelterObject.stringOrNull("administrator", "administratorName", "adminName"),
+        phone = shelterObject.stringOrNull("phone", "phoneNumber", "contactPhone"),
+        email = shelterObject.stringOrNull("email", "institutionalEmail")
+    )
+}
+
+private fun JsonElement.findShelterObject(): JsonObject? {
+    if (isJsonArray) {
+        return asJsonArray.firstOrNull { it.isJsonObject }?.asJsonObject
+    }
+    if (!isJsonObject) return null
+    val root = asJsonObject
+    if (root.hasAnyShelterField()) return root
+    val wrapperKeys = listOf("data", "shelter", "result", "content", "payload")
+    return wrapperKeys
+        .asSequence()
+        .mapNotNull { key -> root.get(key)?.findShelterObject() }
+        .firstOrNull { it.hasAnyShelterField() }
+}
+
+private fun JsonObject.hasAnyShelterField(): Boolean =
+    listOf("id", "shelterId", "name", "shelterName", "legalName", "city", "address", "email", "institutionalEmail")
+        .any(::has)
+
+private fun JsonObject.stringOrNull(vararg names: String): String? =
+    names.asSequence()
+        .mapNotNull { name -> get(name)?.takeIf { !it.isJsonNull && it.isJsonPrimitive }?.asString }
+        .firstOrNull { it.isNotBlank() }

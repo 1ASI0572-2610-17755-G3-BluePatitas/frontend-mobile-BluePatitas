@@ -18,3 +18,13 @@ data class SpeciesDetailsDto(
     val breed: String?,
     val estimatedAgeMonths: Int?
 )
+
+data class RegisterAnimalRequestDto(
+    val name: String,
+    val species: String,
+    val breed: String,
+    val estimatedAgeMonths: Int,
+    val assignedPerimeterId: String? = null,
+    val photoUrl: String? = null,
+    val weightKg: Double
+)

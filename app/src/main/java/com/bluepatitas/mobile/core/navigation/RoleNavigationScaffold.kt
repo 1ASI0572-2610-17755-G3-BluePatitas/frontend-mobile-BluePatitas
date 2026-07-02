@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -41,6 +42,7 @@ import com.bluepatitas.mobile.domain.model.UserRole
 import com.bluepatitas.mobile.feature.main.AdminAnimalsRoute
 import com.bluepatitas.mobile.feature.main.AdminHomeRoute
 import com.bluepatitas.mobile.feature.main.AlertsRoute
+import com.bluepatitas.mobile.feature.main.MainDataViewModel
 import com.bluepatitas.mobile.feature.main.MonitoringRoute
 import com.bluepatitas.mobile.feature.main.ProfileRoute
 import com.bluepatitas.mobile.feature.veterinary.VeterinaryAnimalsRoute
@@ -56,6 +58,11 @@ fun RoleNavigationScaffold(
         val navController = rememberNavController()
         val destinations = destinationsFor(session.role)
         val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+        val adminMainDataViewModel: MainDataViewModel? = if (session.role == UserRole.SHELTER_ADMIN) {
+            hiltViewModel()
+        } else {
+            null
+        }
 
         Scaffold(
             modifier = modifier.fillMaxSize(),
@@ -127,20 +134,21 @@ fun RoleNavigationScaffold(
                                     session = session,
                                     onOpenAnimals = { navController.navigate("admin_animals") },
                                     onOpenMonitoring = { navController.navigate("admin_monitoring") },
-                                    onOpenAlerts = { navController.navigate("admin_alerts") }
+                                    onOpenAlerts = { navController.navigate("admin_alerts") },
+                                    viewModel = requireNotNull(adminMainDataViewModel)
                                 )
                             }
 
                             session.role == UserRole.SHELTER_ADMIN && destination.route == "admin_animals" -> {
-                                AdminAnimalsRoute()
+                                AdminAnimalsRoute(viewModel = requireNotNull(adminMainDataViewModel))
                             }
 
                             session.role == UserRole.SHELTER_ADMIN && destination.route == "admin_monitoring" -> {
-                                MonitoringRoute(session = session)
+                                MonitoringRoute(session = session, viewModel = requireNotNull(adminMainDataViewModel))
                             }
 
                             session.role == UserRole.SHELTER_ADMIN && destination.route == "admin_alerts" -> {
-                                AlertsRoute(session = session)
+                                AlertsRoute(session = session, viewModel = requireNotNull(adminMainDataViewModel))
                             }
 
                             session.role == UserRole.SHELTER_ADMIN && destination.route == "admin_profile" -> {

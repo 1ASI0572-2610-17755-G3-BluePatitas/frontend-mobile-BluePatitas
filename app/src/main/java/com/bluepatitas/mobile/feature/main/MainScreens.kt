@@ -11,6 +11,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -51,10 +53,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -63,6 +67,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bluepatitas.mobile.R
 import com.bluepatitas.mobile.core.designsystem.components.BluePatitasOutlinedButton
 import com.bluepatitas.mobile.core.designsystem.components.BluePatitasPrimaryButton
+import com.bluepatitas.mobile.core.designsystem.components.BluePatitasTextField
 import com.bluepatitas.mobile.core.designsystem.components.ErrorContent
 import com.bluepatitas.mobile.core.designsystem.components.LoadingContent
 import com.bluepatitas.mobile.core.designsystem.theme.AmberWarning
@@ -118,9 +123,16 @@ fun AdminAnimalsRoute(
             AnimalsContent(
                 title = stringResource(R.string.animals),
                 subtitle = stringResource(R.string.admin_animals_subtitle),
-                animals = state.animals,
-                usingFallback = state.usingFallbackAnimals,
-                onRetry = viewModel::refresh
+                state = state,
+                onRetry = viewModel::refresh,
+                onShowRegisterAnimal = viewModel::showRegisterAnimalForm,
+                onDismissRegisterAnimal = viewModel::hideRegisterAnimalForm,
+                onAnimalFormChange = viewModel::updateAnimalForm,
+                onCreateAnimal = viewModel::createAnimal,
+                onDismissCreatedMessage = viewModel::dismissAnimalCreatedMessage,
+                onOpenAnimalDetail = viewModel::openAnimalDetail,
+                onRetryAnimalDetail = viewModel::retryAnimalDetail,
+                onCloseAnimalDetail = viewModel::closeAnimalDetail
             )
         }
     }
@@ -285,7 +297,11 @@ private fun DashboardContent(
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                MetricTile(stringResource(R.string.animals_registered), state.animals.size.toString(), Modifier.weight(1f))
+                MetricTile(
+                    stringResource(R.string.animals_registered),
+                    if (state.usingFallbackAnimals) stringResource(R.string.demo_metric_value) else state.animals.size.toString(),
+                    Modifier.weight(1f)
+                )
                 MetricTile(stringResource(R.string.active_alerts), state.alerts.size.toString(), Modifier.weight(1f), critical = state.alerts.isNotEmpty())
             }
         }
@@ -324,24 +340,75 @@ private fun DashboardContent(
 private fun AnimalsContent(
     title: String,
     subtitle: String,
-    animals: List<AnimalSummary>,
-    usingFallback: Boolean,
-    onRetry: () -> Unit
+    state: MainDataUiState,
+    onRetry: () -> Unit,
+    onShowRegisterAnimal: () -> Unit,
+    onDismissRegisterAnimal: () -> Unit,
+    onAnimalFormChange: (String, String) -> Unit,
+    onCreateAnimal: () -> Unit,
+    onDismissCreatedMessage: () -> Unit,
+    onOpenAnimalDetail: (AnimalSummary) -> Unit,
+    onRetryAnimalDetail: () -> Unit,
+    onCloseAnimalDetail: () -> Unit
 ) {
-    LazyColumn(
-        contentPadding = PaddingValues(24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            ScreenHeader(title = title, subtitle = subtitle)
-        }
-        if (usingFallback) item { FallbackBanner(onRetry = onRetry) }
-        if (animals.isEmpty()) {
-            item { EmptyPanel(stringResource(R.string.no_animals_available)) }
-        } else {
-            items(animals) { animal ->
-                AnimalSummaryCard(animal)
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            contentPadding = PaddingValues(24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                ScreenHeader(title = title, subtitle = subtitle)
             }
+            item {
+                BluePatitasPrimaryButton(
+                    text = stringResource(R.string.register_animal),
+                    onClick = onShowRegisterAnimal
+                )
+            }
+            if (state.animalCreatedMessageVisible) {
+                item {
+                    SuccessPanel(
+                        text = stringResource(R.string.animal_created_success),
+                        onDismiss = onDismissCreatedMessage
+                    )
+                }
+            }
+            if (state.animalLoadError != null) {
+                item {
+                    AnimalDataBanner(
+                        error = state.animalLoadError,
+                        usingFallback = state.usingFallbackAnimals,
+                        onRetry = onRetry
+                    )
+                }
+            }
+            if (state.animals.isEmpty()) {
+                item { EmptyAnimalPanel(onRegisterFirst = onShowRegisterAnimal) }
+            } else {
+                items(state.animals) { animal ->
+                    AnimalSummaryCard(animal = animal, onClick = { onOpenAnimalDetail(animal) })
+                }
+            }
+        }
+        if (state.showRegisterAnimalForm) {
+            RegisterAnimalDialog(
+                form = state.animalForm,
+                errors = state.animalFormErrors,
+                actionError = state.animalActionError,
+                isSaving = state.isSavingAnimal,
+                onFieldChange = onAnimalFormChange,
+                onCreate = onCreateAnimal,
+                onDismiss = onDismissRegisterAnimal
+            )
+        }
+        state.selectedAnimalDetail?.let { animal ->
+            AnimalDetailDialog(
+                animal = animal,
+                isLoading = state.isLoadingAnimalDetail,
+                detailError = state.animalDetailError,
+                onRetry = onRetryAnimalDetail,
+                onDismiss = onCloseAnimalDetail
+            )
         }
     }
 }
@@ -545,9 +612,11 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun AnimalSummaryCard(animal: AnimalSummary) {
+private fun AnimalSummaryCard(animal: AnimalSummary, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -557,7 +626,7 @@ private fun AnimalSummaryCard(animal: AnimalSummary) {
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            InitialAvatar(text = animal.name)
+            AnimalPhotoPlaceholder(animal = animal, modifier = Modifier.size(64.dp))
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -567,7 +636,11 @@ private fun AnimalSummaryCard(animal: AnimalSummary) {
                     color = BlueDark
                 )
                 Text(
-                    text = "${animal.species.ifBlank { stringResource(R.string.not_available) }} • ${animal.breed ?: stringResource(R.string.not_available)}",
+                    text = stringResource(
+                        R.string.animal_species_breed,
+                        animal.species.ifBlank { stringResource(R.string.not_available) },
+                        animal.breed ?: stringResource(R.string.not_available)
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MutedInk
                 )
@@ -588,6 +661,413 @@ private fun AnimalSummaryCard(animal: AnimalSummary) {
         }
     }
 }
+
+@Composable
+private fun RegisterAnimalDialog(
+    form: AnimalFormUiState,
+    errors: Map<String, AnimalFieldError>,
+    actionError: AnimalActionError?,
+    isSaving: Boolean,
+    onFieldChange: (String, String) -> Unit,
+    onCreate: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = { if (!isSaving) onDismiss() }) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 640.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            LazyColumn(
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item {
+                    ScreenHeader(
+                        title = stringResource(R.string.add_animal_title),
+                        subtitle = stringResource(R.string.add_animal_subtitle)
+                    )
+                }
+                item {
+                    PlaceholderNotice()
+                }
+                actionError?.let {
+                    item { WarningPanel(it.asString()) }
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.name,
+                        onValueChange = { onFieldChange("name", it) },
+                        label = stringResource(R.string.animal_name),
+                        error = errors["name"]?.asString()
+                    )
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.species,
+                        onValueChange = { onFieldChange("species", it) },
+                        label = stringResource(R.string.species),
+                        error = errors["species"]?.asString()
+                    )
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.breed,
+                        onValueChange = { onFieldChange("breed", it) },
+                        label = stringResource(R.string.breed)
+                    )
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.estimatedAgeMonths,
+                        onValueChange = { onFieldChange("estimatedAgeMonths", it) },
+                        label = stringResource(R.string.estimated_age_months),
+                        error = errors["estimatedAgeMonths"]?.asString(),
+                        keyboardType = KeyboardType.Number
+                    )
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.weightKg,
+                        onValueChange = { onFieldChange("weightKg", it) },
+                        label = stringResource(R.string.weight_kg),
+                        error = errors["weightKg"]?.asString(),
+                        keyboardType = KeyboardType.Decimal
+                    )
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        BluePatitasOutlinedButton(
+                            text = stringResource(R.string.cancel),
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f)
+                        )
+                        BluePatitasPrimaryButton(
+                            text = stringResource(R.string.save_animal),
+                            onClick = onCreate,
+                            enabled = !isSaving,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnimalDetailDialog(
+    animal: AnimalSummary,
+    isLoading: Boolean,
+    detailError: AnimalActionError?,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            LazyColumn(
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item {
+                    ScreenHeader(
+                        title = animal.name.ifBlank { stringResource(R.string.animal_detail_title) },
+                        subtitle = stringResource(R.string.animal_detail_subtitle)
+                    )
+                }
+                if (isLoading) {
+                    item { LoadingContent() }
+                } else {
+                    detailError?.let {
+                        item { WarningPanel(it.asString()) }
+                        item {
+                            BluePatitasOutlinedButton(
+                                text = stringResource(R.string.retry),
+                                onClick = onRetry
+                            )
+                        }
+                    }
+                    item {
+                        AnimalPhotoPlaceholder(
+                            animal = animal,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                        )
+                    }
+                    item { DetailRow(stringResource(R.string.species), animal.species.ifBlank { stringResource(R.string.not_available) }) }
+                    item { DetailRow(stringResource(R.string.breed), animal.breed ?: stringResource(R.string.not_available)) }
+                    item {
+                        DetailRow(
+                            stringResource(R.string.estimated_age_months),
+                            animal.estimatedAgeMonths?.toString() ?: stringResource(R.string.not_available)
+                        )
+                    }
+                    item {
+                        DetailRow(
+                            stringResource(R.string.weight_kg),
+                            animal.weightKg?.let { stringResource(R.string.kg_value, it) } ?: stringResource(R.string.not_available)
+                        )
+                    }
+                    item { DetailRow(stringResource(R.string.health_condition), animal.healthCondition ?: stringResource(R.string.not_available)) }
+                    item { DetailRow(stringResource(R.string.assigned_perimeter), animal.zoneName ?: stringResource(R.string.not_available)) }
+                    if (!animal.photoUrl.isNullOrBlank()) {
+                        item { DetailRow(stringResource(R.string.photo_url), stringResource(R.string.remote_photo_available)) }
+                    }
+                }
+                item {
+                    BluePatitasOutlinedButton(text = stringResource(R.string.close), onClick = onDismiss)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnimalDataBanner(
+    error: AnimalActionError,
+    usingFallback: Boolean,
+    onRetry: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = if (usingFallback) Color(0xFFFFF9E6) else Color(0xFFFFF5F5)),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, if (usingFallback) Color(0xFFFFE0B2) else Color(0xFFFFD1D1)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = if (usingFallback) {
+                    stringResource(R.string.animals_demo_data_banner)
+                } else {
+                    stringResource(R.string.animals_load_error_banner)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (usingFallback) Color(0xFFE65100) else RedCritical,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = error.asString(),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (usingFallback) Color(0xFFE65100) else RedCritical
+            )
+            OutlinedButton(
+                onClick = onRetry,
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, if (usingFallback) Color(0xFFFFB74D) else RedCritical)
+            ) {
+                Text(
+                    text = stringResource(R.string.retry),
+                    color = if (usingFallback) Color(0xFFE65100) else RedCritical,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaceholderNotice() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFF4F9FF),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFFD6E8FA))
+    ) {
+        Text(
+            text = stringResource(R.string.image_placeholder_now),
+            modifier = Modifier.padding(14.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = BlueDark,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+private fun EmptyAnimalPanel(onRegisterFirst: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE9EFF5)),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            AnimalPhotoPlaceholder(
+                animal = AnimalSummary("", "", null, "", null, null, null, null, null),
+                modifier = Modifier.size(82.dp)
+            )
+            Text(
+                text = stringResource(R.string.no_animals_registered_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = BlueDark,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = stringResource(R.string.no_animals_registered_message),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MutedInk,
+                textAlign = TextAlign.Center
+            )
+            BluePatitasPrimaryButton(
+                text = stringResource(R.string.register_first_animal),
+                onClick = onRegisterFirst
+            )
+        }
+    }
+}
+
+@Composable
+private fun SuccessPanel(text: String, onDismiss: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFEAF8F0),
+        border = BorderStroke(1.dp, Color(0xFFC7EFD7)),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = text,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = GreenSuccess,
+                fontWeight = FontWeight.Bold
+            )
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, GreenSuccess)
+            ) {
+                Text(
+                    text = stringResource(R.string.close),
+                    color = GreenSuccess,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnimalPhotoPlaceholder(animal: AnimalSummary, modifier: Modifier = Modifier) {
+    val species = animal.species.lowercase()
+    val isDog = species.contains("dog") || species.contains("perro") || species.contains("canino")
+    val isCat = species.contains("cat") || species.contains("gato") || species.contains("felino")
+    val label = when {
+        isDog -> stringResource(R.string.placeholder_dog)
+        isCat -> stringResource(R.string.placeholder_cat)
+        else -> stringResource(R.string.placeholder_pet)
+    }
+    val backgroundColor = when {
+        isDog -> Color(0xFFE8F4FF)
+        isCat -> Color(0xFFF2EDFF)
+        else -> Color(0xFFEAF8F0)
+    }
+    val borderColor = when {
+        isDog -> Color(0xFFB9DCF9)
+        isCat -> Color(0xFFD7C8F7)
+        else -> Color(0xFFC7EFD7)
+    }
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(backgroundColor)
+            .border(1.dp, borderColor, RoundedCornerShape(18.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = BluePrimary,
+                fontWeight = FontWeight.ExtraBold
+            )
+            if (!animal.photoUrl.isNullOrBlank()) {
+                Text(
+                    text = stringResource(R.string.photo_url_saved),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedInk,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 6.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFF7FAFD),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFFE3F0FF))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelMedium,
+                color = MutedInk,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = value,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = BlueDark,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.End
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnimalFieldError.asString(): String =
+    when (this) {
+        AnimalFieldError.Required -> stringResource(R.string.required_field)
+        AnimalFieldError.InvalidAge -> stringResource(R.string.animal_age_error)
+        AnimalFieldError.InvalidWeight -> stringResource(R.string.animal_weight_error)
+    }
+
+@Composable
+private fun AnimalActionError.asString(): String =
+    when (this) {
+        AnimalActionError.BadRequest -> stringResource(R.string.animal_error_bad_request)
+        AnimalActionError.SessionExpired -> stringResource(R.string.auth_error_session_expired)
+        AnimalActionError.EndpointNotFound -> stringResource(R.string.auth_error_endpoint_not_found)
+        AnimalActionError.ServerError -> stringResource(R.string.auth_error_server)
+        AnimalActionError.Timeout -> stringResource(R.string.auth_error_timeout)
+        AnimalActionError.Network -> stringResource(R.string.auth_error_network)
+        AnimalActionError.ResponseFormat -> stringResource(R.string.auth_error_response_format)
+        AnimalActionError.Unknown -> stringResource(R.string.connection_error)
+    }
 
 @Composable
 private fun MonitoringZoneCard(zone: MonitoringZone, selected: Boolean, onClick: () -> Unit) {
