@@ -8,4 +8,5 @@ interface AnimalRepository {
     suspend fun getAnimals(): BluePatitasResult<List<AnimalSummary>>
     suspend fun getAnimal(id: String): BluePatitasResult<AnimalSummary>
     suspend fun registerAnimal(form: RegisterAnimalForm): BluePatitasResult<Unit>
+    suspend fun updateHealthCondition(id: String, healthCondition: String): BluePatitasResult<Unit>
 }

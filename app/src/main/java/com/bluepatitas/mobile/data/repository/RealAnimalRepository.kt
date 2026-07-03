@@ -5,6 +5,7 @@ import com.bluepatitas.mobile.core.common.BluePatitasResult
 import com.bluepatitas.mobile.data.remote.BluePatitasApi
 import com.bluepatitas.mobile.data.remote.animal.AnimalDto
 import com.bluepatitas.mobile.data.remote.animal.RegisterAnimalRequestDto
+import com.bluepatitas.mobile.data.remote.animal.UpdateHealthRequestDto
 import com.bluepatitas.mobile.domain.model.AuthFailureReason
 import com.bluepatitas.mobile.domain.model.AnimalSummary
 import com.bluepatitas.mobile.domain.model.RegisterAnimalForm
@@ -37,6 +38,22 @@ class RealAnimalRepository @Inject constructor(
     override suspend fun registerAnimal(form: RegisterAnimalForm): BluePatitasResult<Unit> =
         runAnimalRequest("POST /api/animals") {
             val response = api.createAnimal(form.toRequest())
+            if (response.isSuccessful) {
+                BluePatitasResult.Success(Unit)
+            } else {
+                throw response.toAnimalException()
+            }
+        }
+
+    override suspend fun updateHealthCondition(
+        id: String,
+        healthCondition: String
+    ): BluePatitasResult<Unit> =
+        runAnimalRequest("PUT /api/animals/$id/health") {
+            val response = api.updateAnimalHealth(
+                id = id,
+                request = UpdateHealthRequestDto(healthCondition = healthCondition)
+            )
             if (response.isSuccessful) {
                 BluePatitasResult.Success(Unit)
             } else {

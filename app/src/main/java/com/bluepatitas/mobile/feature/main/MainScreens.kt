@@ -132,6 +132,11 @@ fun AdminAnimalsRoute(
                 onDismissCreatedMessage = viewModel::dismissAnimalCreatedMessage,
                 onOpenAnimalDetail = viewModel::openAnimalDetail,
                 onRetryAnimalDetail = viewModel::retryAnimalDetail,
+                onShowHealthEditor = viewModel::showHealthEditor,
+                onHideHealthEditor = viewModel::hideHealthEditor,
+                onSelectHealthCondition = viewModel::selectHealthCondition,
+                onUpdateAnimalHealth = viewModel::updateAnimalHealth,
+                onDismissHealthUpdatedMessage = viewModel::dismissAnimalHealthUpdatedMessage,
                 onCloseAnimalDetail = viewModel::closeAnimalDetail
             )
         }
@@ -349,6 +354,11 @@ private fun AnimalsContent(
     onDismissCreatedMessage: () -> Unit,
     onOpenAnimalDetail: (AnimalSummary) -> Unit,
     onRetryAnimalDetail: () -> Unit,
+    onShowHealthEditor: () -> Unit,
+    onHideHealthEditor: () -> Unit,
+    onSelectHealthCondition: (String) -> Unit,
+    onUpdateAnimalHealth: () -> Unit,
+    onDismissHealthUpdatedMessage: () -> Unit,
     onCloseAnimalDetail: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -406,7 +416,17 @@ private fun AnimalsContent(
                 animal = animal,
                 isLoading = state.isLoadingAnimalDetail,
                 detailError = state.animalDetailError,
+                showHealthEditor = state.showHealthEditor,
+                selectedHealthCondition = state.selectedHealthCondition,
+                isUpdatingHealth = state.isUpdatingAnimalHealth,
+                healthUpdateError = state.animalHealthUpdateError,
+                healthUpdatedMessageVisible = state.animalHealthUpdatedMessageVisible,
                 onRetry = onRetryAnimalDetail,
+                onShowHealthEditor = onShowHealthEditor,
+                onHideHealthEditor = onHideHealthEditor,
+                onSelectHealthCondition = onSelectHealthCondition,
+                onUpdateAnimalHealth = onUpdateAnimalHealth,
+                onDismissHealthUpdatedMessage = onDismissHealthUpdatedMessage,
                 onDismiss = onCloseAnimalDetail
             )
         }
@@ -655,8 +675,9 @@ private fun AnimalSummaryCard(animal: AnimalSummary, onClick: () -> Unit) {
                 )
             }
             StatusPill(
-                text = animal.healthCondition ?: stringResource(R.string.normal),
-                critical = animal.healthCondition?.contains("TREAT", true) == true
+                text = animal.healthCondition.healthConditionLabel(),
+                critical = animal.healthCondition?.contains("CRITICAL", true) == true ||
+                    animal.healthCondition?.contains("TREAT", true) == true
             )
         }
     }
@@ -762,7 +783,17 @@ private fun AnimalDetailDialog(
     animal: AnimalSummary,
     isLoading: Boolean,
     detailError: AnimalActionError?,
+    showHealthEditor: Boolean,
+    selectedHealthCondition: String?,
+    isUpdatingHealth: Boolean,
+    healthUpdateError: AnimalActionError?,
+    healthUpdatedMessageVisible: Boolean,
     onRetry: () -> Unit,
+    onShowHealthEditor: () -> Unit,
+    onHideHealthEditor: () -> Unit,
+    onSelectHealthCondition: (String) -> Unit,
+    onUpdateAnimalHealth: () -> Unit,
+    onDismissHealthUpdatedMessage: () -> Unit,
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -815,7 +846,35 @@ private fun AnimalDetailDialog(
                             animal.weightKg?.let { stringResource(R.string.kg_value, it) } ?: stringResource(R.string.not_available)
                         )
                     }
-                    item { DetailRow(stringResource(R.string.health_condition), animal.healthCondition ?: stringResource(R.string.not_available)) }
+                    item { DetailRow(stringResource(R.string.health_condition), animal.healthCondition.healthConditionLabel()) }
+                    if (healthUpdatedMessageVisible) {
+                        item {
+                            SuccessPanel(
+                                text = stringResource(R.string.health_update_success),
+                                onDismiss = onDismissHealthUpdatedMessage
+                            )
+                        }
+                    }
+                    healthUpdateError?.let {
+                        item { WarningPanel(it.asString()) }
+                    }
+                    item {
+                        if (showHealthEditor) {
+                            HealthConditionEditor(
+                                currentCondition = animal.healthCondition,
+                                selectedCondition = selectedHealthCondition,
+                                isUpdating = isUpdatingHealth,
+                                onSelect = onSelectHealthCondition,
+                                onConfirm = onUpdateAnimalHealth,
+                                onCancel = onHideHealthEditor
+                            )
+                        } else {
+                            BluePatitasOutlinedButton(
+                                text = stringResource(R.string.change_health_condition),
+                                onClick = onShowHealthEditor
+                            )
+                        }
+                    }
                     item { DetailRow(stringResource(R.string.assigned_perimeter), animal.zoneName ?: stringResource(R.string.not_available)) }
                     if (!animal.photoUrl.isNullOrBlank()) {
                         item { DetailRow(stringResource(R.string.photo_url), stringResource(R.string.remote_photo_available)) }
@@ -824,6 +883,81 @@ private fun AnimalDetailDialog(
                 item {
                     BluePatitasOutlinedButton(text = stringResource(R.string.close), onClick = onDismiss)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HealthConditionEditor(
+    currentCondition: String?,
+    selectedCondition: String?,
+    isUpdating: Boolean,
+    onSelect: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFF6FAFE),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFFD8E9FA))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.select_health_condition),
+                style = MaterialTheme.typography.titleSmall,
+                color = BlueDark,
+                fontWeight = FontWeight.Bold
+            )
+            AnimalHealthOption.entries.forEach { option ->
+                val selected = selectedCondition == option.apiValue
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !isUpdating) { onSelect(option.apiValue) },
+                    color = if (selected) Color(0xFFEAF4FF) else Color.White,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        if (selected) BluePrimary else Color(0xFFE3F0FF)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = option.label(),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = BlueDark,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                        )
+                        if (currentCondition.normalizeHealthCondition() == option.apiValue) {
+                            StatusPill(text = stringResource(R.string.current))
+                        }
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                BluePatitasOutlinedButton(
+                    text = stringResource(R.string.cancel),
+                    onClick = onCancel,
+                    modifier = Modifier.weight(1f)
+                )
+                BluePatitasPrimaryButton(
+                    text = stringResource(R.string.confirm_health_update),
+                    onClick = onConfirm,
+                    enabled = !isUpdating &&
+                        selectedCondition != null &&
+                        selectedCondition != currentCondition.normalizeHealthCondition(),
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
@@ -1616,6 +1750,22 @@ private fun roleLabel(role: UserRole): String =
         UserRole.SHELTER_ADMIN -> stringResource(R.string.role_shelter_admin)
         UserRole.VETERINARIAN -> stringResource(R.string.role_veterinarian)
     }
+
+@Composable
+private fun String?.healthConditionLabel(): String =
+    when (AnimalHealthOption.fromApiValue(this)) {
+        AnimalHealthOption.Healthy -> stringResource(R.string.health_condition_healthy)
+        AnimalHealthOption.InTreatment -> stringResource(R.string.health_condition_in_treatment)
+        AnimalHealthOption.Critical -> stringResource(R.string.health_condition_critical)
+        AnimalHealthOption.UnderObservation -> stringResource(R.string.health_condition_under_observation)
+        null -> this?.takeIf { it.isNotBlank() } ?: stringResource(R.string.not_available)
+    }
+
+@Composable
+private fun AnimalHealthOption.label(): String = apiValue.healthConditionLabel()
+
+private fun String?.normalizeHealthCondition(): String? =
+    AnimalHealthOption.fromApiValue(this)?.apiValue
 
 private fun String.initials(): String =
     trim()

@@ -181,6 +181,15 @@
     <string name="animal_age_error">Ingresa 0 meses o más.</string>
     <string name="animal_weight_error">Ingresa un peso mayor que 0.</string>
     <string name="animal_error_bad_request">Revisa los datos del animal e intenta nuevamente.</string>
+    <string name="change_health_condition">Cambiar estado de salud</string>
+    <string name="select_health_condition">Selecciona estado de salud</string>
+    <string name="confirm_health_update">Actualizar salud</string>
+    <string name="health_update_success">Estado de salud actualizado correctamente.</string>
+    <string name="current">Actual</string>
+    <string name="health_condition_healthy">Saludable</string>
+    <string name="health_condition_in_treatment">En tratamiento</string>
+    <string name="health_condition_critical">Crítico</string>
+    <string name="health_condition_under_observation">En observación</string>
     <string name="close">Cerrar</string>
     <string name="monitoring_subtitle">Monitorea zonas, ambiente, cámara y alertas de seguridad.</string>
     <string name="animal_monitoring">Monitoreo animal</string>

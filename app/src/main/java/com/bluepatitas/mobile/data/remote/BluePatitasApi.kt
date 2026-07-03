@@ -2,6 +2,7 @@ package com.bluepatitas.mobile.data.remote
 
 import com.bluepatitas.mobile.data.remote.animal.AnimalDto
 import com.bluepatitas.mobile.data.remote.animal.RegisterAnimalRequestDto
+import com.bluepatitas.mobile.data.remote.animal.UpdateHealthRequestDto
 import com.bluepatitas.mobile.data.remote.auth.AuthenticatedUserDto
 import com.bluepatitas.mobile.data.remote.auth.SignInRequest
 import com.bluepatitas.mobile.data.remote.auth.SignUpRequestDto
@@ -48,6 +49,12 @@ interface BluePatitasApi {
 
     @GET("api/animals/{id}")
     suspend fun getAnimal(@Path("id") id: String): AnimalDto
+
+    @PUT("api/animals/{id}/health")
+    suspend fun updateAnimalHealth(
+        @Path("id") id: String,
+        @Body request: UpdateHealthRequestDto
+    ): Response<AnimalDto>
 
     @GET("api/monitoring/zones")
     suspend fun getMonitoringZones(): List<MonitoringZoneDto>

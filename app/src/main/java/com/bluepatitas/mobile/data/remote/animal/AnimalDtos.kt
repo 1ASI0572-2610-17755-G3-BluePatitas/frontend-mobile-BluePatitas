@@ -28,3 +28,7 @@ data class RegisterAnimalRequestDto(
     val photoUrl: String? = null,
     val weightKg: Double
 )
+
+data class UpdateHealthRequestDto(
+    val healthCondition: String
+)

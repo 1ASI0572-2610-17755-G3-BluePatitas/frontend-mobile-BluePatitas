@@ -16,6 +16,7 @@ import com.bluepatitas.mobile.domain.usecase.GetAnimalDetailUseCase
 import com.bluepatitas.mobile.domain.usecase.GetAnimalsUseCase
 import com.bluepatitas.mobile.domain.usecase.GetMonitoringAlertsUseCase
 import com.bluepatitas.mobile.domain.usecase.GetMonitoringZonesUseCase
+import com.bluepatitas.mobile.domain.usecase.UpdateAnimalHealthUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +44,11 @@ data class MainDataUiState(
     val selectedAnimalDetail: AnimalSummary? = null,
     val isLoadingAnimalDetail: Boolean = false,
     val animalDetailError: AnimalActionError? = null,
+    val showHealthEditor: Boolean = false,
+    val selectedHealthCondition: String? = null,
+    val isUpdatingAnimalHealth: Boolean = false,
+    val animalHealthUpdateError: AnimalActionError? = null,
+    val animalHealthUpdatedMessageVisible: Boolean = false,
     val geofenceStatus: GeofenceStatus = GeofenceStatus.InsideSafeZone,
     val cameraPermissionDenied: Boolean = false,
     val notificationPermissionDenied: Boolean = false
@@ -73,6 +79,18 @@ enum class AnimalActionError {
     Unknown
 }
 
+enum class AnimalHealthOption(val apiValue: String) {
+    Healthy("HEALTHY"),
+    InTreatment("IN_TREATMENT"),
+    Critical("CRITICAL"),
+    UnderObservation("UNDER_OBSERVATION");
+
+    companion object {
+        fun fromApiValue(value: String?): AnimalHealthOption? =
+            entries.firstOrNull { it.apiValue == value?.trim()?.uppercase() }
+    }
+}
+
 enum class GeofenceStatus {
     InsideSafeZone,
     OutsideSafeZone
@@ -83,6 +101,7 @@ class MainDataViewModel @Inject constructor(
     private val getAnimalsUseCase: GetAnimalsUseCase,
     private val getAnimalDetailUseCase: GetAnimalDetailUseCase,
     private val createAnimalUseCase: CreateAnimalUseCase,
+    private val updateAnimalHealthUseCase: UpdateAnimalHealthUseCase,
     private val getMonitoringZonesUseCase: GetMonitoringZonesUseCase,
     private val getMonitoringAlertsUseCase: GetMonitoringAlertsUseCase,
     private val monitoringRepository: MonitoringRepository
@@ -252,13 +271,21 @@ class MainDataViewModel @Inject constructor(
             it.copy(
                 selectedAnimalDetail = animal,
                 isLoadingAnimalDetail = true,
-                animalDetailError = null
+                animalDetailError = null,
+                showHealthEditor = false,
+                selectedHealthCondition = AnimalHealthOption.fromApiValue(animal.healthCondition)?.apiValue,
+                animalHealthUpdateError = null,
+                animalHealthUpdatedMessageVisible = false
             )
         }
         viewModelScope.launch {
             when (val result = getAnimalDetailUseCase(animal.id)) {
                 is BluePatitasResult.Success -> remoteState.update {
-                    it.copy(selectedAnimalDetail = result.value, isLoadingAnimalDetail = false)
+                    it.copy(
+                        selectedAnimalDetail = result.value,
+                        selectedHealthCondition = AnimalHealthOption.fromApiValue(result.value.healthCondition)?.apiValue,
+                        isLoadingAnimalDetail = false
+                    )
                 }
                 is BluePatitasResult.Error -> remoteState.update {
                     it.copy(
@@ -275,12 +302,104 @@ class MainDataViewModel @Inject constructor(
         remoteState.value.selectedAnimalDetail?.let(::openAnimalDetail)
     }
 
+    fun showHealthEditor() {
+        remoteState.update { state ->
+            state.copy(
+                showHealthEditor = true,
+                selectedHealthCondition = state.selectedHealthCondition
+                    ?: AnimalHealthOption.fromApiValue(state.selectedAnimalDetail?.healthCondition)?.apiValue
+                    ?: AnimalHealthOption.Healthy.apiValue,
+                animalHealthUpdateError = null,
+                animalHealthUpdatedMessageVisible = false
+            )
+        }
+    }
+
+    fun hideHealthEditor() {
+        remoteState.update {
+            it.copy(
+                showHealthEditor = false,
+                animalHealthUpdateError = null,
+                selectedHealthCondition = AnimalHealthOption.fromApiValue(it.selectedAnimalDetail?.healthCondition)?.apiValue
+            )
+        }
+    }
+
+    fun selectHealthCondition(healthCondition: String) {
+        remoteState.update {
+            it.copy(
+                selectedHealthCondition = healthCondition,
+                animalHealthUpdateError = null,
+                animalHealthUpdatedMessageVisible = false
+            )
+        }
+    }
+
+    fun dismissAnimalHealthUpdatedMessage() {
+        remoteState.update { it.copy(animalHealthUpdatedMessageVisible = false) }
+    }
+
+    fun updateAnimalHealth() {
+        val state = remoteState.value
+        val animal = state.selectedAnimalDetail ?: return
+        val selectedHealth = state.selectedHealthCondition ?: return
+        viewModelScope.launch {
+            remoteState.update {
+                it.copy(
+                    isUpdatingAnimalHealth = true,
+                    animalHealthUpdateError = null,
+                    animalHealthUpdatedMessageVisible = false
+                )
+            }
+            when (val result = updateAnimalHealthUseCase(animal.id, selectedHealth)) {
+                is BluePatitasResult.Success -> {
+                    val updatedDetail = when (val detailResult = getAnimalDetailUseCase(animal.id)) {
+                        is BluePatitasResult.Success -> detailResult.value
+                        is BluePatitasResult.Error -> animal.copy(healthCondition = selectedHealth)
+                    }
+                    val animalsResult = getAnimalsUseCase()
+                    val updatedAnimals = when (animalsResult) {
+                        is BluePatitasResult.Success -> animalsResult.value
+                        is BluePatitasResult.Error -> remoteState.value.animals.map {
+                            if (it.id == animal.id) it.copy(healthCondition = selectedHealth) else it
+                        }
+                    }
+                    remoteState.update {
+                        it.copy(
+                            animals = updatedAnimals,
+                            selectedAnimalDetail = updatedDetail,
+                            selectedHealthCondition = AnimalHealthOption.fromApiValue(updatedDetail.healthCondition)?.apiValue,
+                            usingFallbackAnimals = if (animalsResult is BluePatitasResult.Success) false else it.usingFallbackAnimals,
+                            animalLoadError = if (animalsResult is BluePatitasResult.Success) null else it.animalLoadError,
+                            isUpdatingAnimalHealth = false,
+                            showHealthEditor = false,
+                            animalHealthUpdatedMessageVisible = true,
+                            animalHealthUpdateError = null
+                        )
+                    }
+                }
+
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        isUpdatingAnimalHealth = false,
+                        animalHealthUpdateError = result.throwable.toAnimalActionError()
+                    )
+                }
+            }
+        }
+    }
+
     fun closeAnimalDetail() {
         remoteState.update {
             it.copy(
                 selectedAnimalDetail = null,
                 isLoadingAnimalDetail = false,
-                animalDetailError = null
+                animalDetailError = null,
+                showHealthEditor = false,
+                selectedHealthCondition = null,
+                isUpdatingAnimalHealth = false,
+                animalHealthUpdateError = null,
+                animalHealthUpdatedMessageVisible = false
             )
         }
     }

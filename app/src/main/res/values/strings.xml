@@ -181,6 +181,15 @@
     <string name="animal_age_error">Enter 0 or more months.</string>
     <string name="animal_weight_error">Enter a weight greater than 0.</string>
     <string name="animal_error_bad_request">Check the animal data and try again.</string>
+    <string name="change_health_condition">Change health condition</string>
+    <string name="select_health_condition">Select health condition</string>
+    <string name="confirm_health_update">Update health</string>
+    <string name="health_update_success">Health condition updated successfully.</string>
+    <string name="current">Current</string>
+    <string name="health_condition_healthy">Healthy</string>
+    <string name="health_condition_in_treatment">In treatment</string>
+    <string name="health_condition_critical">Critical</string>
+    <string name="health_condition_under_observation">Under observation</string>
     <string name="close">Close</string>
     <string name="monitoring_subtitle">Track zones, environment, camera and safety alerts.</string>
     <string name="animal_monitoring">Animal monitoring</string>
