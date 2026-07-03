@@ -2,6 +2,8 @@ package com.bluepatitas.mobile.core.network
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.util.Log
+import com.bluepatitas.mobile.BuildConfig
 import com.bluepatitas.mobile.data.remote.BearerAuthInterceptor
 import com.bluepatitas.mobile.data.remote.BluePatitasApi
 import dagger.Module
@@ -18,8 +20,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-    const val BackendBaseUrl = "https://backend-bluepatitas.onrender.com/"
-
     @Provides
     @Singleton
     fun provideOkHttpClient(
@@ -30,21 +30,21 @@ object NetworkModule {
         val loggingInterceptor = okhttp3.Interceptor { chain ->
             val request = chain.request()
             if (isDebuggable) {
-                android.util.Log.d("BluePatitasNetwork", "Request: ${request.method} ${request.url}")
+                Log.d("BluePatitasNetwork", "Request: ${request.method} ${request.url}")
             }
             try {
                 val response = chain.proceed(request)
                 if (isDebuggable) {
-                    android.util.Log.d("BluePatitasNetwork", "Response: ${response.code} for ${request.url}")
+                    Log.d("BluePatitasNetwork", "Response: ${response.code} for ${request.url}")
                 }
                 if (isDebuggable && !response.isSuccessful) {
                     val errorBody = response.peekBody(16_384).string()
-                    android.util.Log.e("BluePatitasNetwork", "Response Error Body: $errorBody")
+                    Log.e("BluePatitasNetwork", "Response Error Body: $errorBody")
                 }
                 response
             } catch (e: Exception) {
                 if (isDebuggable) {
-                    android.util.Log.e("BluePatitasNetwork", "Request failed: ${request.method} ${request.url}", e)
+                    Log.e("BluePatitasNetwork", "Request failed: ${request.method} ${request.url}", e)
                 }
                 throw e
             }
@@ -61,13 +61,19 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideRetrofit(
-        okHttpClient: OkHttpClient
-    ): Retrofit =
-        Retrofit.Builder()
-            .baseUrl(BackendBaseUrl)
+        okHttpClient: OkHttpClient,
+        @ApplicationContext context: Context
+    ): Retrofit {
+        val isDebuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (isDebuggable) {
+            Log.d("BluePatitasNetwork", "Backend base URL: ${BuildConfig.BACKEND_BASE_URL}")
+        }
+        return Retrofit.Builder()
+            .baseUrl(BuildConfig.BACKEND_BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
+    }
 
     @Provides
     @Singleton

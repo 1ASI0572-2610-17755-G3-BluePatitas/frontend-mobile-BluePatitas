@@ -7,6 +7,7 @@ import com.bluepatitas.mobile.data.remote.auth.AuthenticatedUserDto
 import com.bluepatitas.mobile.data.remote.auth.SignInRequest
 import com.bluepatitas.mobile.data.remote.auth.SignUpRequestDto
 import com.bluepatitas.mobile.data.remote.auth.UserDto
+import com.bluepatitas.mobile.data.remote.media.MediaUploadResponseDto
 import com.bluepatitas.mobile.data.remote.monitoring.MonitoringZoneDto
 import com.bluepatitas.mobile.data.remote.monitoring.PerimeterAlertDto
 import com.bluepatitas.mobile.data.remote.shelter.ShelterDto
@@ -16,11 +17,14 @@ import com.bluepatitas.mobile.data.remote.veterinary.VeterinaryDashboardDto
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Multipart
+import retrofit2.http.Part
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.Response
 import retrofit2.http.PUT
 import okhttp3.ResponseBody
+import okhttp3.MultipartBody
 
 interface BluePatitasApi {
     @POST("api/v1/authentication/sign-in")
@@ -55,6 +59,12 @@ interface BluePatitasApi {
         @Path("id") id: String,
         @Body request: UpdateHealthRequestDto
     ): Response<AnimalDto>
+
+    @Multipart
+    @POST("api/v1/media/upload")
+    suspend fun uploadMedia(
+        @Part file: MultipartBody.Part
+    ): Response<MediaUploadResponseDto>
 
     @GET("api/monitoring/zones")
     suspend fun getMonitoringZones(): List<MonitoringZoneDto>

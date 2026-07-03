@@ -1,6 +1,6 @@
 # BluePatitas Android
 
-BluePatitas is a native Android app foundation for an IoT shelter management product. The current iteration includes real backend sign-in and veterinary read endpoints, while Register and shelter onboarding remain visual/mock until the full admin registration flow is defined.
+BluePatitas is a native Android app foundation for an IoT shelter management product. The current iteration includes real backend authentication, shelter onboarding, administrator animal management and veterinary read endpoints.
 
 ## Stack
 
@@ -43,7 +43,7 @@ Existing session:
 Splash -> role navigation
 ```
 
-Real sign-in uses the local backend at `http://10.0.2.2:8080/`. Administrator sessions route from the backend response: completed onboarding goes to administrator navigation, otherwise the app continues shelter onboarding. New administrator accounts created from Register still use the mock path and complete shelter onboarding:
+Real sign-in uses the backend configured by `BuildConfig.BACKEND_BASE_URL`. Administrator sessions route from the backend response: completed onboarding goes to administrator navigation, otherwise the app continues shelter onboarding. New administrator accounts created from Register sign up against the backend and then complete shelter onboarding after login:
 
 ```text
 Basic information -> Location -> Confirmation -> Administrator navigation
@@ -89,17 +89,41 @@ VET-BP-2026
 - Development access screen, now secondary from Welcome
 - Role-based placeholder navigation
 
+## Backend Configuration
+
+The default backend is production:
+
+```text
+https://backend-bluepatitas.onrender.com/
+```
+
+To use the local backend from the Android emulator, add this to `local.properties`:
+
+```properties
+BACKEND_BASE_URL=http://10.0.2.2:8080/
+```
+
+To switch back to Render without editing code:
+
+```properties
+BACKEND_BASE_URL=https://backend-bluepatitas.onrender.com/
+```
+
+`local.properties` is ignored by Git. Debug builds allow cleartext traffic for local emulator HTTP; release builds do not enable cleartext globally.
+
 ## Backend Integration
 
 `RealAuthRepository` posts login credentials to `POST /api/v1/authentication/sign-in`. The returned token, user identity, role, shelter id/name and onboarding flag are persisted in DataStore. `BearerAuthInterceptor` reads the token from DataStore and adds `Authorization: Bearer <token>` to protected requests.
 
 Veterinarian Home consumes `GET /api/veterinary/me/dashboard`. Veterinarian Animals consumes `GET /api/veterinary/me/animals`. Both screens show loading and connection error states with retry.
 
+Admin animals consume `GET /api/animals`, `POST /api/animals`, `GET /api/animals/{id}` and `PUT /api/animals/{id}/health`. Animal photo upload uses `POST /api/v1/media/upload` and stores the returned secure URL as `photoUrl`.
+
 Admin and veterinarian navigation now share presentable Home, Animals, Monitoring, Alerts and Profile experiences. Monitoring consumes backend zones and alerts, and falls back to clearly labeled presentation data when an endpoint is unavailable. The zone detail view can activate the phone camera through CameraX, simulate safe-zone breaches, and create local in-app alerts plus Android local notifications through the `bluepatitas_alerts` channel.
 
 ## Mocked Behavior
 
-Register administrator, veterinarian invitation and shelter onboarding are intentionally still mock/local in this phase. `FakeAuthRepository` remains available for those flows and for the explicit development access screen. There is still no Firebase, maps, camera streaming or real email delivery.
+Veterinarian invitation remains local/demo in this phase. `FakeAuthRepository` remains available for the explicit development access screen. There is still no Firebase, maps, camera streaming or real email delivery.
 
 ## Project Structure
 

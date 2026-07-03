@@ -16,6 +16,13 @@ val localProperties = Properties().apply {
     }
 }
 
+val productionBackendBaseUrl = "https://backend-bluepatitas.onrender.com/"
+val backendBaseUrl = localProperties
+    .getProperty("BACKEND_BASE_URL")
+    ?.takeIf { it.isNotBlank() }
+    ?: productionBackendBaseUrl
+val normalizedBackendBaseUrl = if (backendBaseUrl.endsWith("/")) backendBaseUrl else "$backendBaseUrl/"
+
 android {
     namespace = "com.bluepatitas.mobile"
     compileSdk = 36
@@ -31,6 +38,8 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        buildConfigField("String", "BACKEND_BASE_URL", "\"$normalizedBackendBaseUrl\"")
     }
 
     signingConfigs {
@@ -66,6 +75,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     bundle {
@@ -96,6 +106,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp)
+    implementation(libs.coil.compose)
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)

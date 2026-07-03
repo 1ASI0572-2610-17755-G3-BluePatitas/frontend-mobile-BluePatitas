@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -83,6 +84,7 @@ import com.bluepatitas.mobile.domain.model.AppSession
 import com.bluepatitas.mobile.domain.model.MonitoringAlert
 import com.bluepatitas.mobile.domain.model.MonitoringZone
 import com.bluepatitas.mobile.domain.model.UserRole
+import coil.compose.AsyncImage
 
 @Composable
 fun AdminHomeRoute(
@@ -128,6 +130,8 @@ fun AdminAnimalsRoute(
                 onShowRegisterAnimal = viewModel::showRegisterAnimalForm,
                 onDismissRegisterAnimal = viewModel::hideRegisterAnimalForm,
                 onAnimalFormChange = viewModel::updateAnimalForm,
+                onSelectAnimalImage = viewModel::selectAnimalImage,
+                onClearAnimalImage = viewModel::clearAnimalImage,
                 onCreateAnimal = viewModel::createAnimal,
                 onDismissCreatedMessage = viewModel::dismissAnimalCreatedMessage,
                 onOpenAnimalDetail = viewModel::openAnimalDetail,
@@ -350,6 +354,8 @@ private fun AnimalsContent(
     onShowRegisterAnimal: () -> Unit,
     onDismissRegisterAnimal: () -> Unit,
     onAnimalFormChange: (String, String) -> Unit,
+    onSelectAnimalImage: (String?) -> Unit,
+    onClearAnimalImage: () -> Unit,
     onCreateAnimal: () -> Unit,
     onDismissCreatedMessage: () -> Unit,
     onOpenAnimalDetail: (AnimalSummary) -> Unit,
@@ -407,6 +413,8 @@ private fun AnimalsContent(
                 actionError = state.animalActionError,
                 isSaving = state.isSavingAnimal,
                 onFieldChange = onAnimalFormChange,
+                onSelectImage = onSelectAnimalImage,
+                onClearImage = onClearAnimalImage,
                 onCreate = onCreateAnimal,
                 onDismiss = onDismissRegisterAnimal
             )
@@ -690,9 +698,14 @@ private fun RegisterAnimalDialog(
     actionError: AnimalActionError?,
     isSaving: Boolean,
     onFieldChange: (String, String) -> Unit,
+    onSelectImage: (String?) -> Unit,
+    onClearImage: () -> Unit,
     onCreate: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        onSelectImage(uri?.toString())
+    }
     Dialog(onDismissRequest = { if (!isSaving) onDismiss() }) {
         Card(
             modifier = Modifier
@@ -712,10 +725,24 @@ private fun RegisterAnimalDialog(
                     )
                 }
                 item {
-                    PlaceholderNotice()
+                    AnimalImagePicker(
+                        form = form,
+                        isSaving = isSaving,
+                        onPickImage = { imagePicker.launch("image/*") },
+                        onClearImage = onClearImage
+                    )
                 }
                 actionError?.let {
                     item { WarningPanel(it.asString()) }
+                }
+                if (isSaving) {
+                    item {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = BluePrimary,
+                            trackColor = Color(0xFFDCEAF8)
+                        )
+                    }
                 }
                 item {
                     BluePatitasTextField(
@@ -762,7 +789,7 @@ private fun RegisterAnimalDialog(
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         BluePatitasOutlinedButton(
                             text = stringResource(R.string.cancel),
-                            onClick = onDismiss,
+                            onClick = { if (!isSaving) onDismiss() },
                             modifier = Modifier.weight(1f)
                         )
                         BluePatitasPrimaryButton(
@@ -876,9 +903,6 @@ private fun AnimalDetailDialog(
                         }
                     }
                     item { DetailRow(stringResource(R.string.assigned_perimeter), animal.zoneName ?: stringResource(R.string.not_available)) }
-                    if (!animal.photoUrl.isNullOrBlank()) {
-                        item { DetailRow(stringResource(R.string.photo_url), stringResource(R.string.remote_photo_available)) }
-                    }
                 }
                 item {
                     BluePatitasOutlinedButton(text = stringResource(R.string.close), onClick = onDismiss)
@@ -1010,20 +1034,82 @@ private fun AnimalDataBanner(
 }
 
 @Composable
-private fun PlaceholderNotice() {
+private fun AnimalImagePicker(
+    form: AnimalFormUiState,
+    isSaving: Boolean,
+    onPickImage: () -> Unit,
+    onClearImage: () -> Unit
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color(0xFFF4F9FF),
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, Color(0xFFD6E8FA))
     ) {
-        Text(
-            text = stringResource(R.string.image_placeholder_now),
+        Column(
             modifier = Modifier.padding(14.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = BlueDark,
-            fontWeight = FontWeight.Medium
-        )
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (form.selectedImageUri.isNullOrBlank()) {
+                AnimalPhotoPlaceholder(
+                    animal = AnimalSummary("", "", null, form.species, null, null, null, null, null),
+                    modifier = Modifier.size(112.dp)
+                )
+                Text(
+                    text = stringResource(R.string.image_placeholder_now),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = BlueDark,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                AsyncImage(
+                    model = form.selectedImageUri,
+                    contentDescription = stringResource(R.string.animal_photo_description),
+                    modifier = Modifier
+                        .size(128.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .border(1.dp, Color(0xFFD6E8FA), RoundedCornerShape(18.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Text(
+                    text = stringResource(R.string.selected_image_ready),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = GreenSuccess,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = onPickImage,
+                    enabled = !isSaving,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, BluePrimary)
+                ) {
+                    Text(
+                        text = stringResource(R.string.select_animal_photo),
+                        color = BluePrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (!form.selectedImageUri.isNullOrBlank()) {
+                    OutlinedButton(
+                        onClick = onClearImage,
+                        enabled = !isSaving,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, RedCritical)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.remove_animal_photo),
+                            color = RedCritical,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1102,6 +1188,20 @@ private fun SuccessPanel(text: String, onDismiss: () -> Unit) {
 
 @Composable
 private fun AnimalPhotoPlaceholder(animal: AnimalSummary, modifier: Modifier = Modifier) {
+    var imageLoadFailed by remember(animal.photoUrl) { mutableStateOf(false) }
+    val photoUrl = animal.photoUrl?.takeIf { it.isNotBlank() && !imageLoadFailed }
+    if (photoUrl != null) {
+        AsyncImage(
+            model = photoUrl,
+            contentDescription = stringResource(R.string.animal_photo_description),
+            modifier = modifier
+                .clip(RoundedCornerShape(18.dp))
+                .border(1.dp, Color(0xFFE3F0FF), RoundedCornerShape(18.dp)),
+            contentScale = ContentScale.Crop,
+            onError = { imageLoadFailed = true }
+        )
+        return
+    }
     val species = animal.species.lowercase()
     val isDog = species.contains("dog") || species.contains("perro") || species.contains("canino")
     val isCat = species.contains("cat") || species.contains("gato") || species.contains("felino")
@@ -1137,15 +1237,6 @@ private fun AnimalPhotoPlaceholder(animal: AnimalSummary, modifier: Modifier = M
                 color = BluePrimary,
                 fontWeight = FontWeight.ExtraBold
             )
-            if (!animal.photoUrl.isNullOrBlank()) {
-                Text(
-                    text = stringResource(R.string.photo_url_saved),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MutedInk,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 6.dp)
-                )
-            }
         }
     }
 }
@@ -1200,6 +1291,7 @@ private fun AnimalActionError.asString(): String =
         AnimalActionError.Timeout -> stringResource(R.string.auth_error_timeout)
         AnimalActionError.Network -> stringResource(R.string.auth_error_network)
         AnimalActionError.ResponseFormat -> stringResource(R.string.auth_error_response_format)
+        AnimalActionError.InvalidImageUpload -> stringResource(R.string.animal_image_upload_error)
         AnimalActionError.Unknown -> stringResource(R.string.connection_error)
     }
 

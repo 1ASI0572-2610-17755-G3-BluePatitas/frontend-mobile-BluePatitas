@@ -17,6 +17,7 @@ import com.bluepatitas.mobile.domain.usecase.GetAnimalsUseCase
 import com.bluepatitas.mobile.domain.usecase.GetMonitoringAlertsUseCase
 import com.bluepatitas.mobile.domain.usecase.GetMonitoringZonesUseCase
 import com.bluepatitas.mobile.domain.usecase.UpdateAnimalHealthUseCase
+import com.bluepatitas.mobile.domain.usecase.UploadAnimalImageUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,7 +60,8 @@ data class AnimalFormUiState(
     val species: String = "",
     val breed: String = "",
     val estimatedAgeMonths: String = "",
-    val weightKg: String = ""
+    val weightKg: String = "",
+    val selectedImageUri: String? = null
 )
 
 enum class AnimalFieldError {
@@ -76,6 +78,7 @@ enum class AnimalActionError {
     Timeout,
     Network,
     ResponseFormat,
+    InvalidImageUpload,
     Unknown
 }
 
@@ -102,6 +105,7 @@ class MainDataViewModel @Inject constructor(
     private val getAnimalDetailUseCase: GetAnimalDetailUseCase,
     private val createAnimalUseCase: CreateAnimalUseCase,
     private val updateAnimalHealthUseCase: UpdateAnimalHealthUseCase,
+    private val uploadAnimalImageUseCase: UploadAnimalImageUseCase,
     private val getMonitoringZonesUseCase: GetMonitoringZonesUseCase,
     private val getMonitoringAlertsUseCase: GetMonitoringAlertsUseCase,
     private val monitoringRepository: MonitoringRepository
@@ -229,6 +233,24 @@ class MainDataViewModel @Inject constructor(
         }
     }
 
+    fun selectAnimalImage(imageUri: String?) {
+        remoteState.update {
+            it.copy(
+                animalForm = it.animalForm.copy(selectedImageUri = imageUri),
+                animalActionError = null
+            )
+        }
+    }
+
+    fun clearAnimalImage() {
+        remoteState.update {
+            it.copy(
+                animalForm = it.animalForm.copy(selectedImageUri = null),
+                animalActionError = null
+            )
+        }
+    }
+
     fun createAnimal() {
         val state = remoteState.value
         val errors = validateAnimalForm(state.animalForm)
@@ -239,7 +261,21 @@ class MainDataViewModel @Inject constructor(
         val form = state.animalForm.toDomainForm() ?: return
         viewModelScope.launch {
             remoteState.update { it.copy(isSavingAnimal = true, animalActionError = null) }
-            when (val result = createAnimalUseCase(form)) {
+            val photoUrl = state.animalForm.selectedImageUri?.let { imageUri ->
+                when (val uploadResult = uploadAnimalImageUseCase(imageUri)) {
+                    is BluePatitasResult.Success -> uploadResult.value
+                    is BluePatitasResult.Error -> {
+                        remoteState.update {
+                            it.copy(
+                                isSavingAnimal = false,
+                                animalActionError = uploadResult.throwable.toAnimalActionError(forImageUpload = true)
+                            )
+                        }
+                        return@launch
+                    }
+                }
+            }
+            when (val result = createAnimalUseCase(form.copy(photoUrl = photoUrl))) {
                 is BluePatitasResult.Success -> {
                     remoteState.update {
                         it.copy(
@@ -503,9 +539,13 @@ private fun String.sanitizeDecimalInput(): String {
 }
 
 private fun Throwable.toAnimalActionError(): AnimalActionError {
+    return toAnimalActionError(forImageUpload = false)
+}
+
+private fun Throwable.toAnimalActionError(forImageUpload: Boolean): AnimalActionError {
     val reason = (this as? AnimalRepositoryException)?.reason
     return when (reason) {
-        AuthFailureReason.BadRequest -> AnimalActionError.BadRequest
+        AuthFailureReason.BadRequest -> if (forImageUpload) AnimalActionError.InvalidImageUpload else AnimalActionError.BadRequest
         AuthFailureReason.SessionExpired -> AnimalActionError.SessionExpired
         AuthFailureReason.EndpointNotFound -> AnimalActionError.EndpointNotFound
         AuthFailureReason.ServerError -> AnimalActionError.ServerError
@@ -523,6 +563,7 @@ private fun AnimalActionError?.allowsDemoFallback(): Boolean =
         AnimalActionError.Network,
         AnimalActionError.Unknown -> true
         AnimalActionError.BadRequest,
+        AnimalActionError.InvalidImageUpload,
         AnimalActionError.SessionExpired,
         AnimalActionError.EndpointNotFound,
         AnimalActionError.ResponseFormat,

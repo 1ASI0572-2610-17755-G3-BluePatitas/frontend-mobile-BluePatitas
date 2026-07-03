@@ -1,5 +1,8 @@
 package com.bluepatitas.mobile.data.repository
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import android.util.Log
 import com.bluepatitas.mobile.core.common.BluePatitasResult
 import com.bluepatitas.mobile.data.remote.BluePatitasApi
@@ -18,12 +21,17 @@ import java.net.UnknownHostException
 import javax.inject.Inject
 import javax.inject.Singleton
 import javax.net.ssl.SSLException
+import dagger.hilt.android.qualifiers.ApplicationContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import retrofit2.Response
 
 @Singleton
 class RealAnimalRepository @Inject constructor(
-    private val api: BluePatitasApi
+    private val api: BluePatitasApi,
+    @param:ApplicationContext private val context: Context
 ) : AnimalRepository {
     override suspend fun getAnimals(): BluePatitasResult<List<AnimalSummary>> =
         runAnimalRequest("GET /api/animals") {
@@ -40,6 +48,33 @@ class RealAnimalRepository @Inject constructor(
             val response = api.createAnimal(form.toRequest())
             if (response.isSuccessful) {
                 BluePatitasResult.Success(Unit)
+            } else {
+                throw response.toAnimalException()
+            }
+        }
+
+    override suspend fun uploadAnimalImage(imageUri: String): BluePatitasResult<String> =
+        runAnimalRequest("POST /api/v1/media/upload") {
+            val uri = Uri.parse(imageUri)
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: throw AnimalRepositoryException(
+                    AuthFailureReason.BadRequest,
+                    "Could not read selected image."
+                )
+            val mimeType = context.contentResolver.getType(uri) ?: "image/*"
+            val fileName = context.displayName(uri) ?: "animal-photo"
+            val requestBody = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+            val filePart = MultipartBody.Part.createFormData("file", fileName, requestBody)
+            val response = api.uploadMedia(filePart)
+            if (response.isSuccessful) {
+                val body = response.body()
+                val uploadedUrl = body?.secureUrl?.takeIf { it.isNotBlank() }
+                    ?: body?.url?.takeIf { it.isNotBlank() }
+                    ?: throw AnimalRepositoryException(
+                        AuthFailureReason.Serialization,
+                        "Media upload response did not include a URL."
+                    )
+                BluePatitasResult.Success(uploadedUrl)
             } else {
                 throw response.toAnimalException()
             }
@@ -112,7 +147,7 @@ class AnimalRepositoryException(
     override val cause: Throwable? = null
 ) : RuntimeException(message, cause)
 
-private fun Response<AnimalDto>.toAnimalException(): AnimalRepositoryException {
+private fun Response<*>.toAnimalException(): AnimalRepositoryException {
     val code = code()
     val errorText = runCatching { errorBody()?.string().orEmpty() }.getOrDefault("")
     Log.e("BluePatitasAnimals", "Animal request failed: HTTP $code. $errorText")
@@ -146,7 +181,7 @@ private fun RegisterAnimalForm.toRequest(): RegisterAnimalRequestDto =
         breed = breed.trim(),
         estimatedAgeMonths = estimatedAgeMonths,
         assignedPerimeterId = null,
-        photoUrl = null,
+        photoUrl = photoUrl?.takeIf { it.isNotBlank() },
         weightKg = weightKg
     )
 
@@ -162,3 +197,9 @@ private fun AnimalDto.toDomain(): AnimalSummary =
         weightKg = weightKg,
         zoneName = assignedPerimeterId
     )
+
+private fun Context.displayName(uri: Uri): String? =
+    contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+    }

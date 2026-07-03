@@ -5,5 +5,6 @@ data class RegisterAnimalForm(
     val species: String,
     val breed: String,
     val estimatedAgeMonths: Int,
-    val weightKg: Double
+    val weightKg: Double,
+    val photoUrl: String? = null
 )
