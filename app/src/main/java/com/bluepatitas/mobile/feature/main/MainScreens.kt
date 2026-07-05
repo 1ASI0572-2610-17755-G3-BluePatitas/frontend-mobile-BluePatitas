@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -40,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,8 +53,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -88,6 +92,9 @@ import com.bluepatitas.mobile.domain.model.UserRole
 import coil.compose.AsyncImage
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
+
+private const val IOT_REFRESH_INTERVAL_MILLIS = 15_000L
 
 @Composable
 fun AdminHomeRoute(
@@ -160,6 +167,13 @@ fun MonitoringRoute(
     var phoneCameraActive by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
 
+    LaunchedEffect(viewModel) {
+        while (true) {
+            delay(IOT_REFRESH_INTERVAL_MILLIS)
+            viewModel.refreshMonitoring()
+        }
+    }
+
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
             viewModel.clearCameraPermissionDenied()
@@ -212,7 +226,7 @@ fun MonitoringRoute(
                 onZoneCameraEnabledChange = viewModel::updateZoneCameraEnabled,
                 onCreateZone = viewModel::createMonitoringZone,
                 onDismissZoneCreatedMessage = viewModel::dismissZoneCreatedMessage,
-                onRetry = viewModel::refresh
+                onRefreshMonitoring = viewModel::refreshMonitoring
             )
         }
     }
@@ -225,6 +239,12 @@ fun AlertsRoute(
     viewModel: MainDataViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) {
+        while (true) {
+            delay(IOT_REFRESH_INTERVAL_MILLIS)
+            viewModel.refreshAlerts()
+        }
+    }
     MainSurface(modifier = modifier) {
         if (state.isLoading) {
             LoadingContent()
@@ -237,7 +257,9 @@ fun AlertsRoute(
                 actionError = state.monitoringActionError,
                 resolvingAlertId = state.isResolvingAlertId,
                 enablingTrackingAlertId = state.isEnablingTrackingAlertId,
-                onRetry = viewModel::refresh,
+                isRefreshing = state.isRefreshingAlerts,
+                updated = state.lastAlertsRefreshMillis != null,
+                onRetry = viewModel::refreshAlerts,
                 onResolve = viewModel::resolveAlert,
                 onEnableTracking = viewModel::enableAlertTracking
             )
@@ -477,7 +499,7 @@ private fun MonitoringContent(
     onZoneCameraEnabledChange: (Boolean) -> Unit,
     onCreateZone: () -> Unit,
     onDismissZoneCreatedMessage: () -> Unit,
-    onRetry: () -> Unit
+    onRefreshMonitoring: () -> Unit
 ) {
     val selectedZone = state.selectedZone ?: state.zones.firstOrNull()
     LazyColumn(
@@ -500,7 +522,14 @@ private fun MonitoringContent(
                 onClick = onShowCreateZone
             )
         }
-        if (state.usingFallbackMonitoring) item { FallbackBanner(onRetry = onRetry) }
+        item {
+            RefreshStatusRow(
+                isRefreshing = state.isRefreshingMonitoring,
+                updated = state.lastMonitoringRefreshMillis != null,
+                onRefresh = onRefreshMonitoring
+            )
+        }
+        if (state.usingFallbackMonitoring) item { FallbackBanner(onRetry = onRefreshMonitoring) }
         state.monitoringLoadError?.takeIf { !state.usingFallbackMonitoring }?.let {
             item { WarningPanel(it.asMonitoringString()) }
         }
@@ -572,6 +601,8 @@ private fun AlertsContent(
     actionError: AnimalActionError?,
     resolvingAlertId: String?,
     enablingTrackingAlertId: String?,
+    isRefreshing: Boolean,
+    updated: Boolean,
     onRetry: () -> Unit,
     onResolve: (String) -> Unit,
     onEnableTracking: (MonitoringAlert) -> Unit
@@ -588,6 +619,13 @@ private fun AlertsContent(
                 } else {
                     stringResource(R.string.admin_alerts_subtitle)
                 }
+            )
+        }
+        item {
+            RefreshStatusRow(
+                isRefreshing = isRefreshing,
+                updated = updated,
+                onRefresh = onRetry
             )
         }
         if (usingFallback) item { FallbackBanner(onRetry = onRetry) }
@@ -614,6 +652,39 @@ private fun AlertsContent(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun RefreshStatusRow(
+    isRefreshing: Boolean,
+    updated: Boolean,
+    onRefresh: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = when {
+                isRefreshing -> stringResource(R.string.updating)
+                updated -> stringResource(R.string.updated_just_now)
+                else -> stringResource(R.string.iot_refresh_hint)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MutedInk,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+        BluePatitasOutlinedButton(
+            text = if (isRefreshing) stringResource(R.string.updating) else stringResource(R.string.refresh),
+            onClick = onRefresh,
+            modifier = Modifier.width(180.dp)
+        )
     }
 }
 
@@ -1446,11 +1517,18 @@ private fun CreateZoneDialog(
                     )
                 }
                 item {
-                    BluePatitasTextField(
-                        value = form.targetId,
-                        onValueChange = { onFieldChange("targetId", it) },
-                        label = stringResource(R.string.target_id_optional)
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        BluePatitasTextField(
+                            value = form.targetId,
+                            onValueChange = { onFieldChange("targetId", it) },
+                            label = stringResource(R.string.iot_device_id)
+                        )
+                        Text(
+                            text = stringResource(R.string.iot_device_id_auto_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MutedInk
+                        )
+                    }
                 }
                 item {
                     BluePatitasTextField(
@@ -1584,25 +1662,80 @@ private fun TelemetryPanel(
                 color = BlueDark,
                 fontWeight = FontWeight.Bold
             )
-            when {
-                isLoading -> LinearProgressIndicator(
+            if (isLoading) {
+                LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth(),
                     color = BluePrimary,
                     trackColor = Color(0xFFDCEAF8)
                 )
-                error != null -> Text(
+            }
+            error?.let {
+                Text(
                     text = error.asMonitoringString(),
                     style = MaterialTheme.typography.bodySmall,
                     color = RedCritical
                 )
-                telemetry.isEmpty() -> Text(
+            }
+            when {
+                telemetry.isEmpty() && !isLoading -> Text(
                     text = stringResource(R.string.no_telemetry),
                     style = MaterialTheme.typography.bodySmall,
                     color = MutedInk
                 )
-                else -> telemetry.take(3).forEach { record ->
+                telemetry.isNotEmpty() -> telemetry.take(3).forEach { record ->
                     TelemetryRecordItem(record = record)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun IotDeviceIdPanel(targetId: String) {
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    val copiedMessage = stringResource(R.string.iot_device_id_copied)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFF7FAFD),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFFE3F0FF))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.iot_device_id),
+                style = MaterialTheme.typography.labelMedium,
+                color = MutedInk,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = stringResource(R.string.iot_device_id_usage),
+                style = MaterialTheme.typography.bodySmall,
+                color = MutedInk
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = targetId.shortTargetLabel(),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = BlueDark,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                BluePatitasOutlinedButton(
+                    text = stringResource(R.string.copy_id),
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(targetId))
+                        Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
+                    }
+                )
             }
         }
     }
@@ -1784,8 +1917,8 @@ private fun ZoneDetailCard(
                 isLoading = isLoadingTelemetry,
                 error = telemetryError
             )
-            if (!zone.targetId.isLongTechnicalId()) {
-                DetailRow(stringResource(R.string.monitored_target), zone.targetId)
+            if (zone.targetId.isNotBlank()) {
+                IotDeviceIdPanel(targetId = zone.targetId)
             }
             if (isBreach) {
                 Card(
@@ -1981,8 +2114,8 @@ private fun AlertCard(
                     }
                 }
             }
-            if (alert.targetId.isNotBlank() && !alert.targetId.isLongTechnicalId()) {
-                DetailRow(stringResource(R.string.monitored_target), alert.targetId)
+            if (alert.targetId.isNotBlank()) {
+                DetailRow(stringResource(R.string.iot_device_id), alert.targetId.shortTargetLabel())
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 BluePatitasOutlinedButton(

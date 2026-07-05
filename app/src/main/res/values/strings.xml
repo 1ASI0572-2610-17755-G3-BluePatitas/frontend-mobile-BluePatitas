@@ -218,7 +218,15 @@
     <string name="create_zone_subtitle">Register current environmental monitoring data.</string>
     <string name="zone_created_success">Monitoring zone created successfully.</string>
     <string name="zone_name">Zone name</string>
-    <string name="target_id_optional">Target ID (optional)</string>
+    <string name="iot_device_id">IoT device ID</string>
+    <string name="iot_device_id_auto_hint">It will be generated automatically if you leave it empty.</string>
+    <string name="iot_device_id_usage">Use this ID in the IoT device to send telemetry.</string>
+    <string name="copy_id">Copy ID</string>
+    <string name="iot_device_id_copied">ID copied for the IoT device.</string>
+    <string name="refresh">Refresh</string>
+    <string name="updating">Updating...</string>
+    <string name="updated_just_now">Updated just now</string>
+    <string name="iot_refresh_hint">Telemetry refreshes automatically every few seconds.</string>
     <string name="status">Status</string>
     <string name="animal_count">Animal count</string>
     <string name="zone_image_optional">Zone image URL (optional)</string>
@@ -230,7 +238,6 @@
     <string name="no_telemetry">No telemetry records yet.</string>
     <string name="recorded_at_value">Recorded at: %1$s</string>
     <string name="telemetry_visual_description">Telemetry visual data</string>
-    <string name="monitored_target">Monitored target</string>
     <string name="perimeter_alert_title">Perimeter alert</string>
     <string name="perimeter_alert_message">Review the monitored target status.</string>
     <string name="alert_confirmed">Confirmed</string>

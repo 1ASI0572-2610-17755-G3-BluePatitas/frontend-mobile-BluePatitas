@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 data class MainDataUiState(
     val isLoading: Boolean = true,
@@ -67,6 +68,10 @@ data class MainDataUiState(
     val selectedZoneTelemetry: List<TelemetryRecord> = emptyList(),
     val isLoadingTelemetry: Boolean = false,
     val telemetryError: AnimalActionError? = null,
+    val isRefreshingMonitoring: Boolean = false,
+    val isRefreshingAlerts: Boolean = false,
+    val lastMonitoringRefreshMillis: Long? = null,
+    val lastAlertsRefreshMillis: Long? = null,
     val isResolvingAlertId: String? = null,
     val isEnablingTrackingAlertId: String? = null,
     val geofenceStatus: GeofenceStatus = GeofenceStatus.InsideSafeZone,
@@ -500,6 +505,86 @@ class MainDataViewModel @Inject constructor(
         zone.targetId.takeIf { it.isNotBlank() }?.let(::loadTelemetry)
     }
 
+    fun refreshMonitoring() {
+        if (remoteState.value.isRefreshingMonitoring) return
+        viewModelScope.launch {
+            remoteState.update {
+                it.copy(
+                    isRefreshingMonitoring = true,
+                    monitoringLoadError = null
+                )
+            }
+            var updated = false
+            val zones = when (val result = getMonitoringZonesUseCase()) {
+                is BluePatitasResult.Success -> {
+                    updated = true
+                    result.value
+                }
+                is BluePatitasResult.Error -> {
+                    remoteState.update {
+                        it.copy(
+                            monitoringLoadError = result.throwable.toMonitoringActionError(),
+                            usingFallbackMonitoring = it.usingFallbackMonitoring || result.throwable.toMonitoringActionError().allowsDemoFallback()
+                        )
+                    }
+                    null
+                }
+            }
+            val selectedZone = zones?.let { freshZones ->
+                itSelectedZoneOrFirst(remoteState.value.selectedZone, freshZones)
+            } ?: remoteState.value.selectedZone
+            if (zones != null) {
+                remoteState.update {
+                    it.copy(
+                        zones = zones,
+                        selectedZone = selectedZone,
+                        usingFallbackMonitoring = false,
+                        monitoringLoadError = null
+                    )
+                }
+            }
+            selectedZone?.targetId?.takeIf { it.isNotBlank() }?.let { targetId ->
+                updated = fetchTelemetry(targetId, clearOnStart = false, clearOnError = false) || updated
+            }
+            remoteState.update {
+                it.copy(
+                    isRefreshingMonitoring = false,
+                    lastMonitoringRefreshMillis = if (updated) System.currentTimeMillis() else it.lastMonitoringRefreshMillis
+                )
+            }
+        }
+    }
+
+    fun refreshAlerts() {
+        if (remoteState.value.isRefreshingAlerts) return
+        viewModelScope.launch {
+            remoteState.update {
+                it.copy(
+                    isRefreshingAlerts = true,
+                    monitoringLoadError = null
+                )
+            }
+            when (val result = getMonitoringAlertsUseCase()) {
+                is BluePatitasResult.Success -> remoteState.update {
+                    it.copy(
+                        alerts = result.value,
+                        isRefreshingAlerts = false,
+                        monitoringLoadError = null,
+                        lastAlertsRefreshMillis = System.currentTimeMillis()
+                    )
+                }
+                is BluePatitasResult.Error -> remoteState.update {
+                    val error = result.throwable.toMonitoringActionError()
+                    it.copy(
+                        isRefreshingAlerts = false,
+                        monitoringLoadError = error,
+                        usingFallbackMonitoring = it.usingFallbackMonitoring || error.allowsDemoFallback()
+                    )
+                }
+            }
+        }
+    }
+
     fun showCreateZoneForm() {
         remoteState.update {
             it.copy(
@@ -566,9 +651,16 @@ class MainDataViewModel @Inject constructor(
             remoteState.update { it.copy(zoneFormErrors = errors) }
             return
         }
-        val form = state.zoneForm.toDomainForm() ?: return
+        val submitForm = state.zoneForm.withGeneratedDeviceId()
+        val form = submitForm.toDomainForm() ?: return
         viewModelScope.launch {
-            remoteState.update { it.copy(isSavingZone = true, monitoringActionError = null) }
+            remoteState.update {
+                it.copy(
+                    zoneForm = submitForm,
+                    isSavingZone = true,
+                    monitoringActionError = null
+                )
+            }
             when (val result = createMonitoringZoneUseCase(form)) {
                 is BluePatitasResult.Success -> {
                     remoteState.update {
@@ -580,7 +672,7 @@ class MainDataViewModel @Inject constructor(
                             zoneCreatedMessageVisible = true
                         )
                     }
-                    refresh()
+                    refreshMonitoring()
                 }
 
                 is BluePatitasResult.Error -> remoteState.update {
@@ -608,7 +700,7 @@ class MainDataViewModel @Inject constructor(
                             alerts = it.alerts.filterNot { alert -> alert.id == alertId }
                         )
                     }
-                    refresh()
+                    refreshAlerts()
                 }
 
                 is BluePatitasResult.Error -> remoteState.update {
@@ -628,7 +720,7 @@ class MainDataViewModel @Inject constructor(
             when (val result = enableAlertTrackingUseCase(alert.targetId, alert.id)) {
                 is BluePatitasResult.Success -> {
                     remoteState.update { it.copy(isEnablingTrackingAlertId = null) }
-                    refresh()
+                    refreshAlerts()
                 }
 
                 is BluePatitasResult.Error -> remoteState.update {
@@ -643,29 +735,43 @@ class MainDataViewModel @Inject constructor(
 
     private fun loadTelemetry(targetId: String) {
         viewModelScope.launch {
-            remoteState.update {
-                it.copy(
-                    isLoadingTelemetry = true,
-                    telemetryError = null,
-                    selectedZoneTelemetry = emptyList()
-                )
-            }
-            when (val result = getTelemetryUseCase(targetId)) {
-                is BluePatitasResult.Success -> remoteState.update {
+            fetchTelemetry(targetId, clearOnStart = true, clearOnError = true)
+        }
+    }
+
+    private suspend fun fetchTelemetry(
+        targetId: String,
+        clearOnStart: Boolean,
+        clearOnError: Boolean
+    ): Boolean {
+        remoteState.update {
+            it.copy(
+                isLoadingTelemetry = true,
+                telemetryError = null,
+                selectedZoneTelemetry = if (clearOnStart) emptyList() else it.selectedZoneTelemetry
+            )
+        }
+        return when (val result = getTelemetryUseCase(targetId)) {
+            is BluePatitasResult.Success -> {
+                remoteState.update {
                     it.copy(
-                        selectedZoneTelemetry = result.value,
+                        selectedZoneTelemetry = result.value.sortedByDescending { record -> record.recordedAt.orEmpty() },
                         isLoadingTelemetry = false,
                         telemetryError = null
                     )
                 }
+                true
+            }
 
-                is BluePatitasResult.Error -> remoteState.update {
+            is BluePatitasResult.Error -> {
+                remoteState.update {
                     it.copy(
-                        selectedZoneTelemetry = emptyList(),
+                        selectedZoneTelemetry = if (clearOnError) emptyList() else it.selectedZoneTelemetry,
                         isLoadingTelemetry = false,
                         telemetryError = result.throwable.toMonitoringActionError()
                     )
                 }
+                false
             }
         }
     }
@@ -753,6 +859,13 @@ private fun validateZoneForm(form: MonitoringZoneFormUiState): Map<String, Monit
             put("minTemperatureC", MonitoringFieldError.InvalidRange)
             put("maxTemperatureC", MonitoringFieldError.InvalidRange)
         }
+    }
+
+private fun MonitoringZoneFormUiState.withGeneratedDeviceId(): MonitoringZoneFormUiState =
+    if (targetId.isBlank()) {
+        copy(targetId = UUID.randomUUID().toString())
+    } else {
+        copy(targetId = targetId.trim())
     }
 
 private fun MonitoringZoneFormUiState.toDomainForm(): CreateMonitoringZoneForm? {
