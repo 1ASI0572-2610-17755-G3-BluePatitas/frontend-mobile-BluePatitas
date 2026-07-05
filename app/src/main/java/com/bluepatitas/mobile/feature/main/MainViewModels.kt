@@ -4,18 +4,25 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bluepatitas.mobile.core.common.BluePatitasResult
 import com.bluepatitas.mobile.data.repository.AnimalRepositoryException
+import com.bluepatitas.mobile.data.repository.MonitoringRepositoryException
 import com.bluepatitas.mobile.domain.model.AuthFailureReason
 import com.bluepatitas.mobile.domain.model.AnimalSummary
 import com.bluepatitas.mobile.domain.model.AppSession
+import com.bluepatitas.mobile.domain.model.CreateMonitoringZoneForm
 import com.bluepatitas.mobile.domain.model.MonitoringAlert
 import com.bluepatitas.mobile.domain.model.MonitoringZone
 import com.bluepatitas.mobile.domain.model.RegisterAnimalForm
+import com.bluepatitas.mobile.domain.model.TelemetryRecord
 import com.bluepatitas.mobile.domain.repository.MonitoringRepository
 import com.bluepatitas.mobile.domain.usecase.CreateAnimalUseCase
+import com.bluepatitas.mobile.domain.usecase.CreateMonitoringZoneUseCase
+import com.bluepatitas.mobile.domain.usecase.EnableAlertTrackingUseCase
 import com.bluepatitas.mobile.domain.usecase.GetAnimalDetailUseCase
 import com.bluepatitas.mobile.domain.usecase.GetAnimalsUseCase
 import com.bluepatitas.mobile.domain.usecase.GetMonitoringAlertsUseCase
 import com.bluepatitas.mobile.domain.usecase.GetMonitoringZonesUseCase
+import com.bluepatitas.mobile.domain.usecase.GetTelemetryUseCase
+import com.bluepatitas.mobile.domain.usecase.ResolveMonitoringAlertUseCase
 import com.bluepatitas.mobile.domain.usecase.UpdateAnimalHealthUseCase
 import com.bluepatitas.mobile.domain.usecase.UploadAnimalImageUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,6 +42,7 @@ data class MainDataUiState(
     val usingFallbackAnimals: Boolean = false,
     val usingFallbackMonitoring: Boolean = false,
     val animalLoadError: AnimalActionError? = null,
+    val monitoringLoadError: AnimalActionError? = null,
     val errorMessageVisible: Boolean = false,
     val showRegisterAnimalForm: Boolean = false,
     val animalForm: AnimalFormUiState = AnimalFormUiState(),
@@ -50,9 +58,33 @@ data class MainDataUiState(
     val isUpdatingAnimalHealth: Boolean = false,
     val animalHealthUpdateError: AnimalActionError? = null,
     val animalHealthUpdatedMessageVisible: Boolean = false,
+    val showCreateZoneForm: Boolean = false,
+    val zoneForm: MonitoringZoneFormUiState = MonitoringZoneFormUiState(),
+    val zoneFormErrors: Map<String, MonitoringFieldError> = emptyMap(),
+    val isSavingZone: Boolean = false,
+    val monitoringActionError: AnimalActionError? = null,
+    val zoneCreatedMessageVisible: Boolean = false,
+    val selectedZoneTelemetry: List<TelemetryRecord> = emptyList(),
+    val isLoadingTelemetry: Boolean = false,
+    val telemetryError: AnimalActionError? = null,
+    val isResolvingAlertId: String? = null,
+    val isEnablingTrackingAlertId: String? = null,
     val geofenceStatus: GeofenceStatus = GeofenceStatus.InsideSafeZone,
     val cameraPermissionDenied: Boolean = false,
     val notificationPermissionDenied: Boolean = false
+)
+
+data class MonitoringZoneFormUiState(
+    val targetId: String = "",
+    val name: String = "",
+    val temperatureC: String = "",
+    val humidity: String = "",
+    val status: String = "ACTIVE",
+    val animalCount: String = "0",
+    val cameraEnabled: Boolean = true,
+    val imageUrl: String = "",
+    val minTemperatureC: String = "",
+    val maxTemperatureC: String = ""
 )
 
 data class AnimalFormUiState(
@@ -68,6 +100,13 @@ enum class AnimalFieldError {
     Required,
     InvalidAge,
     InvalidWeight
+}
+
+enum class MonitoringFieldError {
+    Required,
+    InvalidNumber,
+    InvalidCount,
+    InvalidRange
 }
 
 enum class AnimalActionError {
@@ -108,6 +147,10 @@ class MainDataViewModel @Inject constructor(
     private val uploadAnimalImageUseCase: UploadAnimalImageUseCase,
     private val getMonitoringZonesUseCase: GetMonitoringZonesUseCase,
     private val getMonitoringAlertsUseCase: GetMonitoringAlertsUseCase,
+    private val createMonitoringZoneUseCase: CreateMonitoringZoneUseCase,
+    private val resolveMonitoringAlertUseCase: ResolveMonitoringAlertUseCase,
+    private val enableAlertTrackingUseCase: EnableAlertTrackingUseCase,
+    private val getTelemetryUseCase: GetTelemetryUseCase,
     private val monitoringRepository: MonitoringRepository
 ) : ViewModel() {
 
@@ -142,10 +185,13 @@ class MainDataViewModel @Inject constructor(
                     isLoading = true,
                     errorMessageVisible = false,
                     animalLoadError = null,
-                    animalActionError = null
+                    monitoringLoadError = null,
+                    animalActionError = null,
+                    monitoringActionError = null
                 )
             }
             var animalLoadError: AnimalActionError? = null
+            var monitoringLoadError: AnimalActionError? = null
             val animals = when (val result = getAnimalsUseCase()) {
                 is BluePatitasResult.Success -> result.value
                 is BluePatitasResult.Error -> {
@@ -159,31 +205,40 @@ class MainDataViewModel @Inject constructor(
             }
             val zones = when (val result = getMonitoringZonesUseCase()) {
                 is BluePatitasResult.Success -> result.value
-                is BluePatitasResult.Error -> fallbackZones()
+                is BluePatitasResult.Error -> {
+                    val error = result.throwable.toMonitoringActionError()
+                    monitoringLoadError = error
+                    if (error.allowsDemoFallback()) fallbackZones() else emptyList()
+                }
             }
             var alertsFailed = false
             val alerts = when (val result = getMonitoringAlertsUseCase()) {
                 is BluePatitasResult.Success -> result.value
                 is BluePatitasResult.Error -> {
-                    alertsFailed = true
+                    val error = result.throwable.toMonitoringActionError()
+                    monitoringLoadError = monitoringLoadError ?: error
+                    alertsFailed = error.allowsDemoFallback()
                     emptyList()
                 }
             }
             val animalFallback = animals === fallbackAnimalsReference
             val monitoringFallback = zones === fallbackZonesReference || alertsFailed
+            val selectedZone = itSelectedZoneOrFirst(remoteState.value.selectedZone, zones)
             remoteState.update {
                 it.copy(
                     isLoading = false,
                     animals = animals,
                     zones = zones,
                     alerts = alerts,
-                    selectedZone = it.selectedZone ?: zones.firstOrNull(),
+                    selectedZone = selectedZone,
                     usingFallbackAnimals = animalFallback,
                     usingFallbackMonitoring = monitoringFallback,
                     animalLoadError = animalLoadError,
+                    monitoringLoadError = monitoringLoadError,
                     errorMessageVisible = animalFallback || monitoringFallback
                 )
             }
+            selectedZone?.targetId?.takeIf { it.isNotBlank() }?.let(::loadTelemetry)
         }
     }
 
@@ -442,6 +497,177 @@ class MainDataViewModel @Inject constructor(
 
     fun selectZone(zone: MonitoringZone) {
         remoteState.update { it.copy(selectedZone = zone) }
+        zone.targetId.takeIf { it.isNotBlank() }?.let(::loadTelemetry)
+    }
+
+    fun showCreateZoneForm() {
+        remoteState.update {
+            it.copy(
+                showCreateZoneForm = true,
+                zoneForm = MonitoringZoneFormUiState(),
+                zoneFormErrors = emptyMap(),
+                monitoringActionError = null,
+                zoneCreatedMessageVisible = false
+            )
+        }
+    }
+
+    fun hideCreateZoneForm() {
+        remoteState.update {
+            it.copy(
+                showCreateZoneForm = false,
+                zoneFormErrors = emptyMap(),
+                monitoringActionError = null,
+                isSavingZone = false
+            )
+        }
+    }
+
+    fun updateZoneForm(field: String, value: String) {
+        remoteState.update { state ->
+            val sanitizedValue = when (field) {
+                "temperatureC", "humidity", "minTemperatureC", "maxTemperatureC" -> value.sanitizeSignedDecimalInput()
+                "animalCount" -> value.filter { it.isDigit() }
+                else -> value
+            }
+            val form = when (field) {
+                "targetId" -> state.zoneForm.copy(targetId = sanitizedValue)
+                "name" -> state.zoneForm.copy(name = sanitizedValue)
+                "temperatureC" -> state.zoneForm.copy(temperatureC = sanitizedValue)
+                "humidity" -> state.zoneForm.copy(humidity = sanitizedValue)
+                "status" -> state.zoneForm.copy(status = sanitizedValue)
+                "animalCount" -> state.zoneForm.copy(animalCount = sanitizedValue)
+                "imageUrl" -> state.zoneForm.copy(imageUrl = sanitizedValue)
+                "minTemperatureC" -> state.zoneForm.copy(minTemperatureC = sanitizedValue)
+                "maxTemperatureC" -> state.zoneForm.copy(maxTemperatureC = sanitizedValue)
+                else -> state.zoneForm
+            }
+            state.copy(
+                zoneForm = form,
+                zoneFormErrors = state.zoneFormErrors - field,
+                monitoringActionError = null
+            )
+        }
+    }
+
+    fun updateZoneCameraEnabled(enabled: Boolean) {
+        remoteState.update {
+            it.copy(
+                zoneForm = it.zoneForm.copy(cameraEnabled = enabled),
+                monitoringActionError = null
+            )
+        }
+    }
+
+    fun createMonitoringZone() {
+        val state = remoteState.value
+        val errors = validateZoneForm(state.zoneForm)
+        if (errors.isNotEmpty()) {
+            remoteState.update { it.copy(zoneFormErrors = errors) }
+            return
+        }
+        val form = state.zoneForm.toDomainForm() ?: return
+        viewModelScope.launch {
+            remoteState.update { it.copy(isSavingZone = true, monitoringActionError = null) }
+            when (val result = createMonitoringZoneUseCase(form)) {
+                is BluePatitasResult.Success -> {
+                    remoteState.update {
+                        it.copy(
+                            isSavingZone = false,
+                            showCreateZoneForm = false,
+                            zoneForm = MonitoringZoneFormUiState(),
+                            zoneFormErrors = emptyMap(),
+                            zoneCreatedMessageVisible = true
+                        )
+                    }
+                    refresh()
+                }
+
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        isSavingZone = false,
+                        monitoringActionError = result.throwable.toMonitoringActionError()
+                    )
+                }
+            }
+        }
+    }
+
+    fun dismissZoneCreatedMessage() {
+        remoteState.update { it.copy(zoneCreatedMessageVisible = false) }
+    }
+
+    fun resolveAlert(alertId: String) {
+        viewModelScope.launch {
+            remoteState.update { it.copy(isResolvingAlertId = alertId, monitoringActionError = null) }
+            when (val result = resolveMonitoringAlertUseCase(alertId)) {
+                is BluePatitasResult.Success -> {
+                    remoteState.update {
+                        it.copy(
+                            isResolvingAlertId = null,
+                            alerts = it.alerts.filterNot { alert -> alert.id == alertId }
+                        )
+                    }
+                    refresh()
+                }
+
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        isResolvingAlertId = null,
+                        monitoringActionError = result.throwable.toMonitoringActionError()
+                    )
+                }
+            }
+        }
+    }
+
+    fun enableAlertTracking(alert: MonitoringAlert) {
+        if (alert.targetId.isBlank()) return
+        viewModelScope.launch {
+            remoteState.update { it.copy(isEnablingTrackingAlertId = alert.id, monitoringActionError = null) }
+            when (val result = enableAlertTrackingUseCase(alert.targetId, alert.id)) {
+                is BluePatitasResult.Success -> {
+                    remoteState.update { it.copy(isEnablingTrackingAlertId = null) }
+                    refresh()
+                }
+
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        isEnablingTrackingAlertId = null,
+                        monitoringActionError = result.throwable.toMonitoringActionError()
+                    )
+                }
+            }
+        }
+    }
+
+    private fun loadTelemetry(targetId: String) {
+        viewModelScope.launch {
+            remoteState.update {
+                it.copy(
+                    isLoadingTelemetry = true,
+                    telemetryError = null,
+                    selectedZoneTelemetry = emptyList()
+                )
+            }
+            when (val result = getTelemetryUseCase(targetId)) {
+                is BluePatitasResult.Success -> remoteState.update {
+                    it.copy(
+                        selectedZoneTelemetry = result.value,
+                        isLoadingTelemetry = false,
+                        telemetryError = null
+                    )
+                }
+
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        selectedZoneTelemetry = emptyList(),
+                        isLoadingTelemetry = false,
+                        telemetryError = result.throwable.toMonitoringActionError()
+                    )
+                }
+            }
+        }
     }
 
     fun simulateBreach(session: AppSession) {
@@ -456,12 +682,6 @@ class MainDataViewModel @Inject constructor(
         viewModelScope.launch {
             monitoringRepository.clearLocalAlerts()
             remoteState.update { it.copy(geofenceStatus = GeofenceStatus.InsideSafeZone) }
-        }
-    }
-
-    fun resolveAlert(alertId: String) {
-        viewModelScope.launch {
-            monitoringRepository.resolveLocalAlert(alertId)
         }
     }
 
@@ -515,6 +735,46 @@ private fun validateAnimalForm(form: AnimalFormUiState): Map<String, AnimalField
         if (weight == null || weight <= 0.0) put("weightKg", AnimalFieldError.InvalidWeight)
     }
 
+private fun validateZoneForm(form: MonitoringZoneFormUiState): Map<String, MonitoringFieldError> =
+    buildMap {
+        if (form.name.isBlank()) put("name", MonitoringFieldError.Required)
+        if (form.status.isBlank()) put("status", MonitoringFieldError.Required)
+        val temperature = form.temperatureC.toDoubleOrNull()
+        if (temperature == null) put("temperatureC", MonitoringFieldError.InvalidNumber)
+        val humidity = form.humidity.toDoubleOrNull()
+        if (humidity == null) put("humidity", MonitoringFieldError.InvalidNumber)
+        val animalCount = form.animalCount.toIntOrNull()
+        if (animalCount == null || animalCount < 0) put("animalCount", MonitoringFieldError.InvalidCount)
+        val minTemperature = form.minTemperatureC.toDoubleOrNull()
+        if (minTemperature == null) put("minTemperatureC", MonitoringFieldError.InvalidNumber)
+        val maxTemperature = form.maxTemperatureC.toDoubleOrNull()
+        if (maxTemperature == null) put("maxTemperatureC", MonitoringFieldError.InvalidNumber)
+        if (minTemperature != null && maxTemperature != null && minTemperature > maxTemperature) {
+            put("minTemperatureC", MonitoringFieldError.InvalidRange)
+            put("maxTemperatureC", MonitoringFieldError.InvalidRange)
+        }
+    }
+
+private fun MonitoringZoneFormUiState.toDomainForm(): CreateMonitoringZoneForm? {
+    val temperature = temperatureC.toDoubleOrNull() ?: return null
+    val humidityValue = humidity.toDoubleOrNull() ?: return null
+    val count = animalCount.toIntOrNull() ?: return null
+    val minTemperature = minTemperatureC.toDoubleOrNull() ?: return null
+    val maxTemperature = maxTemperatureC.toDoubleOrNull() ?: return null
+    return CreateMonitoringZoneForm(
+        targetId = targetId.trim().ifBlank { null },
+        name = name.trim(),
+        temperatureC = temperature,
+        humidity = humidityValue,
+        status = status.trim().ifBlank { "ACTIVE" },
+        animalCount = count,
+        cameraEnabled = cameraEnabled,
+        imageUrl = imageUrl.trim().ifBlank { null },
+        minTemperatureC = minTemperature,
+        maxTemperatureC = maxTemperature
+    )
+}
+
 private fun AnimalFormUiState.toDomainForm(): RegisterAnimalForm? {
     val age = estimatedAgeMonths.toIntOrNull() ?: return null
     val weight = weightKg.toDoubleOrNull() ?: return null
@@ -527,6 +787,9 @@ private fun AnimalFormUiState.toDomainForm(): RegisterAnimalForm? {
     )
 }
 
+private fun itSelectedZoneOrFirst(selectedZone: MonitoringZone?, zones: List<MonitoringZone>): MonitoringZone? =
+    selectedZone?.let { selected -> zones.firstOrNull { it.id == selected.id } } ?: zones.firstOrNull()
+
 private fun String.sanitizeDecimalInput(): String {
     val filtered = filter { it.isDigit() || it == '.' }
     val firstDotIndex = filtered.indexOf('.')
@@ -538,8 +801,33 @@ private fun String.sanitizeDecimalInput(): String {
     }
 }
 
+private fun String.sanitizeSignedDecimalInput(): String {
+    val filtered = filterIndexed { index, char -> char.isDigit() || char == '.' || (char == '-' && index == 0) }
+    val firstDotIndex = filtered.indexOf('.')
+    if (firstDotIndex == -1) return filtered
+    return buildString {
+        filtered.forEachIndexed { index, char ->
+            if (char != '.' || index == firstDotIndex) append(char)
+        }
+    }
+}
+
 private fun Throwable.toAnimalActionError(): AnimalActionError {
     return toAnimalActionError(forImageUpload = false)
+}
+
+private fun Throwable.toMonitoringActionError(): AnimalActionError {
+    val reason = (this as? MonitoringRepositoryException)?.reason
+    return when (reason) {
+        AuthFailureReason.BadRequest -> AnimalActionError.BadRequest
+        AuthFailureReason.SessionExpired -> AnimalActionError.SessionExpired
+        AuthFailureReason.EndpointNotFound -> AnimalActionError.EndpointNotFound
+        AuthFailureReason.ServerError -> AnimalActionError.ServerError
+        AuthFailureReason.Timeout -> AnimalActionError.Timeout
+        AuthFailureReason.Network -> AnimalActionError.Network
+        AuthFailureReason.Serialization -> AnimalActionError.ResponseFormat
+        AuthFailureReason.Conflict, AuthFailureReason.MissingRole, AuthFailureReason.Unknown, null -> AnimalActionError.Unknown
+    }
 }
 
 private fun Throwable.toAnimalActionError(forImageUpload: Boolean): AnimalActionError {

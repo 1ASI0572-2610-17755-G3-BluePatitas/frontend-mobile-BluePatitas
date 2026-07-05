@@ -8,8 +8,11 @@ import com.bluepatitas.mobile.data.remote.auth.SignInRequest
 import com.bluepatitas.mobile.data.remote.auth.SignUpRequestDto
 import com.bluepatitas.mobile.data.remote.auth.UserDto
 import com.bluepatitas.mobile.data.remote.media.MediaUploadResponseDto
+import com.bluepatitas.mobile.data.remote.monitoring.EnableTrackingRequestDto
 import com.bluepatitas.mobile.data.remote.monitoring.MonitoringZoneDto
 import com.bluepatitas.mobile.data.remote.monitoring.PerimeterAlertDto
+import com.bluepatitas.mobile.data.remote.monitoring.TelemetryRecordDto
+import com.bluepatitas.mobile.data.remote.monitoring.ZoneRequestDto
 import com.bluepatitas.mobile.data.remote.shelter.ShelterDto
 import com.bluepatitas.mobile.data.remote.shelter.ShelterRequestDto
 import com.bluepatitas.mobile.data.remote.veterinary.VeterinaryAnimalDto
@@ -69,8 +72,23 @@ interface BluePatitasApi {
     @GET("api/monitoring/zones")
     suspend fun getMonitoringZones(): List<MonitoringZoneDto>
 
+    @POST("api/monitoring/zones")
+    suspend fun createMonitoringZone(@Body request: ZoneRequestDto): Response<MonitoringZoneDto>
+
     @GET("api/monitoring/alerts")
     suspend fun getMonitoringAlerts(): List<PerimeterAlertDto>
+
+    @PUT("api/monitoring/alerts/{id}/resolve")
+    suspend fun resolveMonitoringAlert(@Path("id") id: String): Response<PerimeterAlertDto>
+
+    @POST("api/monitoring/alerts/{targetId}/tracking")
+    suspend fun enableAlertTracking(
+        @Path("targetId") targetId: String,
+        @Body request: EnableTrackingRequestDto
+    ): Response<PerimeterAlertDto>
+
+    @GET("api/monitoring/telemetry/{targetId}")
+    suspend fun getTelemetry(@Path("targetId") targetId: String): List<TelemetryRecordDto>
 
     @GET("api/monitoring/shelter")
     suspend fun getShelter(): ShelterDto

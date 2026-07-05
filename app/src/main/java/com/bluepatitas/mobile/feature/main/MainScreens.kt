@@ -83,8 +83,11 @@ import com.bluepatitas.mobile.domain.model.AnimalSummary
 import com.bluepatitas.mobile.domain.model.AppSession
 import com.bluepatitas.mobile.domain.model.MonitoringAlert
 import com.bluepatitas.mobile.domain.model.MonitoringZone
+import com.bluepatitas.mobile.domain.model.TelemetryRecord
 import com.bluepatitas.mobile.domain.model.UserRole
 import coil.compose.AsyncImage
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun AdminHomeRoute(
@@ -203,6 +206,12 @@ fun MonitoringRoute(
                 onSimulateBreach = ::simulateBreach,
                 onSimulateSafe = viewModel::simulateSafePosition,
                 onSelectZone = viewModel::selectZone,
+                onShowCreateZone = viewModel::showCreateZoneForm,
+                onDismissCreateZone = viewModel::hideCreateZoneForm,
+                onZoneFormChange = viewModel::updateZoneForm,
+                onZoneCameraEnabledChange = viewModel::updateZoneCameraEnabled,
+                onCreateZone = viewModel::createMonitoringZone,
+                onDismissZoneCreatedMessage = viewModel::dismissZoneCreatedMessage,
                 onRetry = viewModel::refresh
             )
         }
@@ -224,8 +233,13 @@ fun AlertsRoute(
                 session = session,
                 alerts = state.alerts,
                 usingFallback = state.usingFallbackMonitoring,
+                loadError = state.monitoringLoadError,
+                actionError = state.monitoringActionError,
+                resolvingAlertId = state.isResolvingAlertId,
+                enablingTrackingAlertId = state.isEnablingTrackingAlertId,
                 onRetry = viewModel::refresh,
-                onResolve = viewModel::resolveAlert
+                onResolve = viewModel::resolveAlert,
+                onEnableTracking = viewModel::enableAlertTracking
             )
         }
     }
@@ -333,7 +347,13 @@ private fun DashboardContent(
             if (state.alerts.isEmpty()) {
                 EmptyPanel(stringResource(R.string.no_active_alerts))
             } else {
-                AlertCard(alert = state.alerts.first(), onResolve = null)
+                AlertCard(
+                    alert = state.alerts.first(),
+                    resolving = false,
+                    enablingTracking = false,
+                    onResolve = {},
+                    onEnableTracking = {}
+                )
             }
         }
         item {
@@ -451,6 +471,12 @@ private fun MonitoringContent(
     onSimulateBreach: () -> Unit,
     onSimulateSafe: () -> Unit,
     onSelectZone: (MonitoringZone) -> Unit,
+    onShowCreateZone: () -> Unit,
+    onDismissCreateZone: () -> Unit,
+    onZoneFormChange: (String, String) -> Unit,
+    onZoneCameraEnabledChange: (Boolean) -> Unit,
+    onCreateZone: () -> Unit,
+    onDismissZoneCreatedMessage: () -> Unit,
     onRetry: () -> Unit
 ) {
     val selectedZone = state.selectedZone ?: state.zones.firstOrNull()
@@ -468,19 +494,43 @@ private fun MonitoringContent(
                 subtitle = stringResource(R.string.monitoring_subtitle)
             )
         }
+        item {
+            BluePatitasPrimaryButton(
+                text = stringResource(R.string.create_zone),
+                onClick = onShowCreateZone
+            )
+        }
         if (state.usingFallbackMonitoring) item { FallbackBanner(onRetry = onRetry) }
+        state.monitoringLoadError?.takeIf { !state.usingFallbackMonitoring }?.let {
+            item { WarningPanel(it.asMonitoringString()) }
+        }
+        state.monitoringActionError?.let {
+            item { WarningPanel(it.asMonitoringString()) }
+        }
+        if (state.zoneCreatedMessageVisible) {
+            item {
+                SuccessPanel(
+                    text = stringResource(R.string.zone_created_success),
+                    onDismiss = onDismissZoneCreatedMessage
+                )
+            }
+        }
         if (state.cameraPermissionDenied) {
             item { WarningPanel(stringResource(R.string.camera_permission_required)) }
         }
         if (state.notificationPermissionDenied) {
             item { WarningPanel(stringResource(R.string.notifications_disabled_message)) }
         }
-        items(state.zones) { zone ->
-            MonitoringZoneCard(
-                zone = zone,
-                selected = selectedZone?.id == zone.id,
-                onClick = { onSelectZone(zone) }
-            )
+        if (state.zones.isEmpty()) {
+            item { EmptyPanel(stringResource(R.string.no_monitoring_zones)) }
+        } else {
+            items(state.zones) { zone ->
+                MonitoringZoneCard(
+                    zone = zone,
+                    selected = selectedZone?.id == zone.id,
+                    onClick = { onSelectZone(zone) }
+                )
+            }
         }
         selectedZone?.let { zone ->
             item {
@@ -488,6 +538,9 @@ private fun MonitoringContent(
                     zone = zone,
                     geofenceStatus = state.geofenceStatus,
                     phoneCameraActive = phoneCameraActive,
+                    telemetry = state.selectedZoneTelemetry,
+                    isLoadingTelemetry = state.isLoadingTelemetry,
+                    telemetryError = state.telemetryError,
                     onActivateCamera = onActivateCamera,
                     onStopCamera = onStopCamera,
                     onSimulateBreach = onSimulateBreach,
@@ -496,6 +549,18 @@ private fun MonitoringContent(
             }
         }
     }
+    if (state.showCreateZoneForm) {
+        CreateZoneDialog(
+            form = state.zoneForm,
+            errors = state.zoneFormErrors,
+            isSaving = state.isSavingZone,
+            actionError = state.monitoringActionError,
+            onFieldChange = onZoneFormChange,
+            onCameraEnabledChange = onZoneCameraEnabledChange,
+            onCreate = onCreateZone,
+            onDismiss = onDismissCreateZone
+        )
+    }
 }
 
 @Composable
@@ -503,8 +568,13 @@ private fun AlertsContent(
     session: AppSession,
     alerts: List<MonitoringAlert>,
     usingFallback: Boolean,
+    loadError: AnimalActionError?,
+    actionError: AnimalActionError?,
+    resolvingAlertId: String?,
+    enablingTrackingAlertId: String?,
     onRetry: () -> Unit,
-    onResolve: (String) -> Unit
+    onResolve: (String) -> Unit,
+    onEnableTracking: (MonitoringAlert) -> Unit
 ) {
     LazyColumn(
         contentPadding = PaddingValues(24.dp),
@@ -521,6 +591,8 @@ private fun AlertsContent(
             )
         }
         if (usingFallback) item { FallbackBanner(onRetry = onRetry) }
+        loadError?.takeIf { !usingFallback }?.let { item { WarningPanel(it.asMonitoringString()) } }
+        actionError?.let { item { WarningPanel(it.asMonitoringString()) } }
         if (alerts.isEmpty()) {
             item {
                 EmptyPanel(
@@ -533,7 +605,13 @@ private fun AlertsContent(
             }
         } else {
             items(alerts) { alert ->
-                AlertCard(alert = alert, onResolve = if (alert.isLocal) onResolve else null)
+                AlertCard(
+                    alert = alert,
+                    resolving = resolvingAlertId == alert.id,
+                    enablingTracking = enablingTrackingAlertId == alert.id,
+                    onResolve = onResolve,
+                    onEnableTracking = onEnableTracking
+                )
             }
         }
     }
@@ -1296,6 +1374,295 @@ private fun AnimalActionError.asString(): String =
     }
 
 @Composable
+private fun AnimalActionError.asMonitoringString(): String =
+    when (this) {
+        AnimalActionError.BadRequest -> stringResource(R.string.monitoring_error_bad_request)
+        AnimalActionError.SessionExpired -> stringResource(R.string.auth_error_session_expired)
+        AnimalActionError.EndpointNotFound -> stringResource(R.string.monitoring_error_not_found)
+        AnimalActionError.ServerError -> stringResource(R.string.monitoring_error_server)
+        AnimalActionError.Timeout,
+        AnimalActionError.Network -> stringResource(R.string.monitoring_error_network)
+        AnimalActionError.ResponseFormat -> stringResource(R.string.auth_error_response_format)
+        AnimalActionError.InvalidImageUpload -> stringResource(R.string.animal_image_upload_error)
+        AnimalActionError.Unknown -> stringResource(R.string.connection_error)
+    }
+
+@Composable
+private fun MonitoringFieldError.asString(): String =
+    when (this) {
+        MonitoringFieldError.Required -> stringResource(R.string.required_field)
+        MonitoringFieldError.InvalidNumber -> stringResource(R.string.monitoring_number_error)
+        MonitoringFieldError.InvalidCount -> stringResource(R.string.monitoring_count_error)
+        MonitoringFieldError.InvalidRange -> stringResource(R.string.monitoring_temperature_range_error)
+    }
+
+@Composable
+private fun CreateZoneDialog(
+    form: MonitoringZoneFormUiState,
+    errors: Map<String, MonitoringFieldError>,
+    isSaving: Boolean,
+    actionError: AnimalActionError?,
+    onFieldChange: (String, String) -> Unit,
+    onCameraEnabledChange: (Boolean) -> Unit,
+    onCreate: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = { if (!isSaving) onDismiss() }) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 680.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            LazyColumn(
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item {
+                    ScreenHeader(
+                        title = stringResource(R.string.create_zone),
+                        subtitle = stringResource(R.string.create_zone_subtitle)
+                    )
+                }
+                actionError?.let {
+                    item { WarningPanel(it.asMonitoringString()) }
+                }
+                if (isSaving) {
+                    item {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = BluePrimary,
+                            trackColor = Color(0xFFDCEAF8)
+                        )
+                    }
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.name,
+                        onValueChange = { onFieldChange("name", it) },
+                        label = stringResource(R.string.zone_name),
+                        error = errors["name"]?.asString()
+                    )
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.targetId,
+                        onValueChange = { onFieldChange("targetId", it) },
+                        label = stringResource(R.string.target_id_optional)
+                    )
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.status,
+                        onValueChange = { onFieldChange("status", it) },
+                        label = stringResource(R.string.status),
+                        error = errors["status"]?.asString()
+                    )
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        BluePatitasTextField(
+                            value = form.temperatureC,
+                            onValueChange = { onFieldChange("temperatureC", it) },
+                            label = stringResource(R.string.temperature_short),
+                            error = errors["temperatureC"]?.asString(),
+                            keyboardType = KeyboardType.Decimal,
+                            modifier = Modifier.weight(1f)
+                        )
+                        BluePatitasTextField(
+                            value = form.humidity,
+                            onValueChange = { onFieldChange("humidity", it) },
+                            label = stringResource(R.string.humidity_short),
+                            error = errors["humidity"]?.asString(),
+                            keyboardType = KeyboardType.Decimal,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        BluePatitasTextField(
+                            value = form.minTemperatureC,
+                            onValueChange = { onFieldChange("minTemperatureC", it) },
+                            label = stringResource(R.string.min_temp),
+                            error = errors["minTemperatureC"]?.asString(),
+                            keyboardType = KeyboardType.Decimal,
+                            modifier = Modifier.weight(1f)
+                        )
+                        BluePatitasTextField(
+                            value = form.maxTemperatureC,
+                            onValueChange = { onFieldChange("maxTemperatureC", it) },
+                            label = stringResource(R.string.max_temp),
+                            error = errors["maxTemperatureC"]?.asString(),
+                            keyboardType = KeyboardType.Decimal,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.animalCount,
+                        onValueChange = { onFieldChange("animalCount", it) },
+                        label = stringResource(R.string.animal_count),
+                        error = errors["animalCount"]?.asString(),
+                        keyboardType = KeyboardType.Number
+                    )
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.imageUrl,
+                        onValueChange = { onFieldChange("imageUrl", it) },
+                        label = stringResource(R.string.zone_image_optional)
+                    )
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(
+                            onClick = { onCameraEnabledChange(true) },
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = if (form.cameraEnabled) BluePrimary else Color(0xFFEAF4FF),
+                                contentColor = if (form.cameraEnabled) Color.White else BluePrimary
+                            )
+                        ) {
+                            Text(stringResource(R.string.camera_enabled), fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = { onCameraEnabledChange(false) },
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = if (!form.cameraEnabled) BluePrimary else Color(0xFFEAF4FF),
+                                contentColor = if (!form.cameraEnabled) Color.White else BluePrimary
+                            )
+                        ) {
+                            Text(stringResource(R.string.camera_disabled), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        BluePatitasOutlinedButton(
+                            text = stringResource(R.string.cancel),
+                            onClick = { if (!isSaving) onDismiss() },
+                            modifier = Modifier.weight(1f)
+                        )
+                        BluePatitasPrimaryButton(
+                            text = stringResource(R.string.save_zone),
+                            onClick = onCreate,
+                            enabled = !isSaving,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TelemetryPanel(
+    telemetry: List<TelemetryRecord>,
+    isLoading: Boolean,
+    error: AnimalActionError?
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFF4F9FF),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFFD6E8FA))
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.telemetry),
+                style = MaterialTheme.typography.titleSmall,
+                color = BlueDark,
+                fontWeight = FontWeight.Bold
+            )
+            when {
+                isLoading -> LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = BluePrimary,
+                    trackColor = Color(0xFFDCEAF8)
+                )
+                error != null -> Text(
+                    text = error.asMonitoringString(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = RedCritical
+                )
+                telemetry.isEmpty() -> Text(
+                    text = stringResource(R.string.no_telemetry),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedInk
+                )
+                else -> telemetry.take(3).forEach { record ->
+                    TelemetryRecordItem(record = record)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TelemetryRecordItem(record: TelemetryRecord) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFFE0EDF8))
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SmallMetric(
+                    label = stringResource(R.string.temperature_short),
+                    value = record.ambientTemperature.temperatureValue(),
+                    modifier = Modifier.weight(1f)
+                )
+                SmallMetric(
+                    label = stringResource(R.string.humidity_short),
+                    value = record.ambientHumidity.percentValue(),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            record.recordedAt?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = stringResource(R.string.recorded_at_value, it.friendlyRecordedAt()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedInk
+                )
+            }
+            record.visualData?.takeIf { it.isNotBlank() }?.let {
+                if (it.startsWith("http", ignoreCase = true)) {
+                    AsyncImage(
+                        model = it,
+                        contentDescription = stringResource(R.string.telemetry_visual_description),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedInk
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun MonitoringZoneCard(zone: MonitoringZone, selected: Boolean, onClick: () -> Unit) {
     Card(
         onClick = onClick,
@@ -1346,6 +1713,9 @@ private fun ZoneDetailCard(
     zone: MonitoringZone,
     geofenceStatus: GeofenceStatus,
     phoneCameraActive: Boolean,
+    telemetry: List<TelemetryRecord>,
+    isLoadingTelemetry: Boolean,
+    telemetryError: AnimalActionError?,
     onActivateCamera: () -> Unit,
     onStopCamera: () -> Unit,
     onSimulateBreach: () -> Unit,
@@ -1390,7 +1760,7 @@ private fun ZoneDetailCard(
                             .padding(horizontal = 10.dp, vertical = 5.dp)
                     ) {
                         Text(
-                            text = "Phone camera live preview",
+                            text = stringResource(R.string.phone_camera_live_preview),
                             color = Color.White,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold
@@ -1403,6 +1773,19 @@ private fun ZoneDetailCard(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 SmallMetric(stringResource(R.string.min_temp), "${zone.minTemperatureC?.toInt() ?: 0}°C", Modifier.weight(1f))
                 SmallMetric(stringResource(R.string.max_temp), "${zone.maxTemperatureC?.toInt() ?: 0}°C", Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SmallMetric(stringResource(R.string.temperature_short), zone.temperatureC.temperatureValue(), Modifier.weight(1f))
+                SmallMetric(stringResource(R.string.humidity_short), zone.humidity.percentValue(), Modifier.weight(1f))
+                SmallMetric(stringResource(R.string.animals), zone.animalCount.toString(), Modifier.weight(1f))
+            }
+            TelemetryPanel(
+                telemetry = telemetry,
+                isLoading = isLoadingTelemetry,
+                error = telemetryError
+            )
+            if (!zone.targetId.isLongTechnicalId()) {
+                DetailRow(stringResource(R.string.monitored_target), zone.targetId)
             }
             if (isBreach) {
                 Card(
@@ -1429,7 +1812,7 @@ private fun ZoneDetailCard(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Simulated safe-zone data",
+                                text = stringResource(R.string.local_simulation_label),
                                 color = Color(0xFF8C3E3E),
                                 style = MaterialTheme.typography.bodySmall
                             )
@@ -1447,20 +1830,14 @@ private fun ZoneDetailCard(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "Current location".uppercase(),
+                            text = stringResource(R.string.current_status).uppercase(),
                             style = MaterialTheme.typography.labelSmall,
                             color = BluePrimary,
                             fontWeight = FontWeight.Bold
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Text(
-                                text = "Lat: -12.0464",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = BlueDark,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "Lng: -77.0428",
+                                text = stringResource(R.string.zone_environment_value, zone.temperatureC?.toInt() ?: 0, zone.humidity?.toInt() ?: 0),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = BlueDark,
                                 fontWeight = FontWeight.Medium
@@ -1469,7 +1846,7 @@ private fun ZoneDetailCard(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(GreenSuccess))
                             Text(
-                                text = "Tracking active (Simulated safe-zone data)",
+                                text = stringResource(R.string.tracking_active),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MutedInk
                             )
@@ -1536,7 +1913,13 @@ private fun ZoneDetailCard(
 }
 
 @Composable
-private fun AlertCard(alert: MonitoringAlert, onResolve: ((String) -> Unit)?) {
+private fun AlertCard(
+    alert: MonitoringAlert,
+    resolving: Boolean,
+    enablingTracking: Boolean,
+    onResolve: (String) -> Unit,
+    onEnableTracking: (MonitoringAlert) -> Unit
+) {
     val isCritical = alert.isBreachConfirmed
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1552,22 +1935,27 @@ private fun AlertCard(alert: MonitoringAlert, onResolve: ((String) -> Unit)?) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = alert.zoneName.ifBlank { stringResource(R.string.monitoring) },
+                        text = stringResource(R.string.perimeter_alert_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = BlueDark
                     )
                     Text(
-                        text = alert.message,
+                        text = alert.zoneName.ifBlank { alert.targetId.shortTargetLabel() },
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (isCritical) Color(0xFF8C3E3E) else Ink
                     )
                 }
                 StatusPill(
-                    text = if (alert.isLocal) stringResource(R.string.local) else stringResource(R.string.backend),
+                    text = if (alert.isBreachConfirmed) stringResource(R.string.alert_confirmed) else stringResource(R.string.alert_not_confirmed),
                     critical = isCritical
                 )
             }
+            Text(
+                text = alert.message.ifBlank { stringResource(R.string.perimeter_alert_message) },
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isCritical) Color(0xFF8C3E3E) else MutedInk
+            )
             if (alert.latitude != null && alert.longitude != null) {
                 Surface(
                     color = if (isCritical) Color(0xFFFFECEC) else Color(0xFFF5F9FD),
@@ -1586,21 +1974,29 @@ private fun AlertCard(alert: MonitoringAlert, onResolve: ((String) -> Unit)?) {
                             fontWeight = FontWeight.Medium
                         )
                         Spacer(modifier = Modifier.weight(1f))
-                        Text(
+                        StatusPill(
                             text = if (alert.trackingActive) stringResource(R.string.tracking_active) else stringResource(R.string.tracking_inactive),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (alert.trackingActive) GreenSuccess else Color.Gray,
-                            fontWeight = FontWeight.Bold
+                            critical = false
                         )
                     }
                 }
             }
-            onResolve?.let {
-                Spacer(modifier = Modifier.height(4.dp))
+            if (alert.targetId.isNotBlank() && !alert.targetId.isLongTechnicalId()) {
+                DetailRow(stringResource(R.string.monitored_target), alert.targetId)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 BluePatitasOutlinedButton(
-                    text = stringResource(R.string.resolve_alert),
-                    onClick = { it(alert.id) }
+                    text = if (resolving) stringResource(R.string.saving) else stringResource(R.string.resolve_alert),
+                    onClick = { onResolve(alert.id) },
+                    modifier = Modifier.weight(1f)
                 )
+                if (!alert.trackingActive && alert.targetId.isNotBlank() && !alert.isLocal) {
+                    BluePatitasPrimaryButton(
+                        text = if (enablingTracking) stringResource(R.string.saving) else stringResource(R.string.enable_tracking),
+                        onClick = { onEnableTracking(alert) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
@@ -1608,6 +2004,8 @@ private fun AlertCard(alert: MonitoringAlert, onResolve: ((String) -> Unit)?) {
 
 @Composable
 private fun CameraPlaceholder(imageUrl: String?) {
+    var imageLoadFailed by remember(imageUrl) { mutableStateOf(false) }
+    val remoteImage = imageUrl?.takeIf { it.isNotBlank() && !imageLoadFailed }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1616,6 +2014,16 @@ private fun CameraPlaceholder(imageUrl: String?) {
             .background(Color(0xFFE8F2FA)),
         contentAlignment = Alignment.Center
     ) {
+        if (remoteImage != null) {
+            AsyncImage(
+                model = remoteImage,
+                contentDescription = stringResource(R.string.zone_image_description),
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                onError = { imageLoadFailed = true }
+            )
+            return@Box
+        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1625,7 +2033,7 @@ private fun CameraPlaceholder(imageUrl: String?) {
                 style = MaterialTheme.typography.headlineMedium
             )
             Text(
-                text = imageUrl?.takeIf { it.isNotBlank() } ?: stringResource(R.string.camera_snapshot_placeholder),
+                text = stringResource(R.string.camera_snapshot_placeholder),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MutedInk,
                 fontWeight = FontWeight.Medium,
@@ -1858,6 +2266,25 @@ private fun AnimalHealthOption.label(): String = apiValue.healthConditionLabel()
 
 private fun String?.normalizeHealthCondition(): String? =
     AnimalHealthOption.fromApiValue(this)?.apiValue
+
+private fun Double?.temperatureValue(): String =
+    this?.let { "${it.toInt()}°C" } ?: "-"
+
+private fun Double?.percentValue(): String =
+    this?.let { "${it.toInt()}%" } ?: "-"
+
+private fun String.shortTargetLabel(): String =
+    ifBlank { "" }.let { value ->
+        if (value.length > 10) "${value.take(8)}..." else value
+    }
+
+private fun String.isLongTechnicalId(): Boolean =
+    length > 18 || count { it == '-' } >= 3
+
+private fun String.friendlyRecordedAt(): String =
+    runCatching {
+        OffsetDateTime.parse(this).format(DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm"))
+    }.getOrDefault(this)
 
 private fun String.initials(): String =
     trim()

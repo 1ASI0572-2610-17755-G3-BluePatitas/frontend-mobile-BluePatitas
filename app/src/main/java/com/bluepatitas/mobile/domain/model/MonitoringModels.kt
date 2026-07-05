@@ -27,3 +27,25 @@ data class MonitoringAlert(
     val createdAt: String,
     val isLocal: Boolean
 )
+
+data class CreateMonitoringZoneForm(
+    val targetId: String?,
+    val name: String,
+    val temperatureC: Double,
+    val humidity: Double,
+    val status: String,
+    val animalCount: Int,
+    val cameraEnabled: Boolean,
+    val imageUrl: String?,
+    val minTemperatureC: Double,
+    val maxTemperatureC: Double
+)
+
+data class TelemetryRecord(
+    val id: String,
+    val targetId: String,
+    val ambientTemperature: Double?,
+    val ambientHumidity: Double?,
+    val visualData: String?,
+    val recordedAt: String?
+)
