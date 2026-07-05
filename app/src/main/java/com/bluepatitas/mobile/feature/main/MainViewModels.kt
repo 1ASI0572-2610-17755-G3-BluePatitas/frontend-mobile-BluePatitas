@@ -14,6 +14,7 @@ import com.bluepatitas.mobile.domain.model.MonitoringZone
 import com.bluepatitas.mobile.domain.model.RegisterAnimalForm
 import com.bluepatitas.mobile.domain.model.TelemetryRecord
 import com.bluepatitas.mobile.domain.repository.MonitoringRepository
+import com.bluepatitas.mobile.domain.usecase.AssignAnimalToPerimeterUseCase
 import com.bluepatitas.mobile.domain.usecase.CreateAnimalUseCase
 import com.bluepatitas.mobile.domain.usecase.CreateMonitoringZoneUseCase
 import com.bluepatitas.mobile.domain.usecase.EnableAlertTrackingUseCase
@@ -59,6 +60,11 @@ data class MainDataUiState(
     val isUpdatingAnimalHealth: Boolean = false,
     val animalHealthUpdateError: AnimalActionError? = null,
     val animalHealthUpdatedMessageVisible: Boolean = false,
+    val showZoneAssignmentEditor: Boolean = false,
+    val selectedPerimeterId: String? = null,
+    val isAssigningAnimalZone: Boolean = false,
+    val animalZoneAssignmentError: AnimalActionError? = null,
+    val animalZoneAssignedMessageVisible: Boolean = false,
     val showCreateZoneForm: Boolean = false,
     val zoneForm: MonitoringZoneFormUiState = MonitoringZoneFormUiState(),
     val zoneFormErrors: Map<String, MonitoringFieldError> = emptyMap(),
@@ -149,6 +155,7 @@ class MainDataViewModel @Inject constructor(
     private val getAnimalDetailUseCase: GetAnimalDetailUseCase,
     private val createAnimalUseCase: CreateAnimalUseCase,
     private val updateAnimalHealthUseCase: UpdateAnimalHealthUseCase,
+    private val assignAnimalToPerimeterUseCase: AssignAnimalToPerimeterUseCase,
     private val uploadAnimalImageUseCase: UploadAnimalImageUseCase,
     private val getMonitoringZonesUseCase: GetMonitoringZonesUseCase,
     private val getMonitoringAlertsUseCase: GetMonitoringAlertsUseCase,
@@ -371,7 +378,11 @@ class MainDataViewModel @Inject constructor(
                 showHealthEditor = false,
                 selectedHealthCondition = AnimalHealthOption.fromApiValue(animal.healthCondition)?.apiValue,
                 animalHealthUpdateError = null,
-                animalHealthUpdatedMessageVisible = false
+                animalHealthUpdatedMessageVisible = false,
+                showZoneAssignmentEditor = false,
+                selectedPerimeterId = animal.assignedPerimeterId,
+                animalZoneAssignmentError = null,
+                animalZoneAssignedMessageVisible = false
             )
         }
         viewModelScope.launch {
@@ -380,6 +391,7 @@ class MainDataViewModel @Inject constructor(
                     it.copy(
                         selectedAnimalDetail = result.value,
                         selectedHealthCondition = AnimalHealthOption.fromApiValue(result.value.healthCondition)?.apiValue,
+                        selectedPerimeterId = result.value.assignedPerimeterId,
                         isLoadingAnimalDetail = false
                     )
                 }
@@ -435,6 +447,42 @@ class MainDataViewModel @Inject constructor(
         remoteState.update { it.copy(animalHealthUpdatedMessageVisible = false) }
     }
 
+    fun showZoneAssignmentEditor() {
+        remoteState.update { state ->
+            state.copy(
+                showZoneAssignmentEditor = true,
+                selectedPerimeterId = state.selectedAnimalDetail?.assignedPerimeterId,
+                animalZoneAssignmentError = null,
+                animalZoneAssignedMessageVisible = false
+            )
+        }
+    }
+
+    fun hideZoneAssignmentEditor() {
+        remoteState.update {
+            it.copy(
+                showZoneAssignmentEditor = false,
+                selectedPerimeterId = it.selectedAnimalDetail?.assignedPerimeterId,
+                animalZoneAssignmentError = null,
+                isAssigningAnimalZone = false
+            )
+        }
+    }
+
+    fun selectPerimeter(perimeterId: String) {
+        remoteState.update {
+            it.copy(
+                selectedPerimeterId = perimeterId,
+                animalZoneAssignmentError = null,
+                animalZoneAssignedMessageVisible = false
+            )
+        }
+    }
+
+    fun dismissAnimalZoneAssignedMessage() {
+        remoteState.update { it.copy(animalZoneAssignedMessageVisible = false) }
+    }
+
     fun updateAnimalHealth() {
         val state = remoteState.value
         val animal = state.selectedAnimalDetail ?: return
@@ -485,6 +533,73 @@ class MainDataViewModel @Inject constructor(
         }
     }
 
+    fun assignAnimalToSelectedZone() {
+        val state = remoteState.value
+        val animal = state.selectedAnimalDetail ?: return
+        val perimeterId = state.selectedPerimeterId ?: return
+        assignAnimalToPerimeter(animal.id, perimeterId)
+    }
+
+    fun removeAnimalZoneAssignment() {
+        val animal = remoteState.value.selectedAnimalDetail ?: return
+        assignAnimalToPerimeter(animal.id, null)
+    }
+
+    private fun assignAnimalToPerimeter(animalId: String, perimeterId: String?) {
+        viewModelScope.launch {
+            remoteState.update {
+                it.copy(
+                    isAssigningAnimalZone = true,
+                    animalZoneAssignmentError = null,
+                    animalZoneAssignedMessageVisible = false
+                )
+            }
+            when (val result = assignAnimalToPerimeterUseCase(animalId, perimeterId)) {
+                is BluePatitasResult.Success -> {
+                    val updatedDetail = when (val detailResult = getAnimalDetailUseCase(animalId)) {
+                        is BluePatitasResult.Success -> detailResult.value
+                        is BluePatitasResult.Error -> remoteState.value.selectedAnimalDetail?.copy(assignedPerimeterId = perimeterId)
+                    }
+                    val animalsResult = getAnimalsUseCase()
+                    val updatedAnimals = when (animalsResult) {
+                        is BluePatitasResult.Success -> animalsResult.value
+                        is BluePatitasResult.Error -> remoteState.value.animals.map {
+                            if (it.id == animalId) it.copy(assignedPerimeterId = perimeterId) else it
+                        }
+                    }
+                    val zonesResult = getMonitoringZonesUseCase()
+                    val updatedZones = when (zonesResult) {
+                        is BluePatitasResult.Success -> zonesResult.value
+                        is BluePatitasResult.Error -> remoteState.value.zones
+                    }
+                    remoteState.update {
+                        it.copy(
+                            animals = updatedAnimals,
+                            zones = updatedZones,
+                            selectedAnimalDetail = updatedDetail,
+                            selectedPerimeterId = updatedDetail?.assignedPerimeterId,
+                            showZoneAssignmentEditor = false,
+                            isAssigningAnimalZone = false,
+                            animalZoneAssignmentError = null,
+                            animalZoneAssignedMessageVisible = true,
+                            usingFallbackAnimals = if (animalsResult is BluePatitasResult.Success) false else it.usingFallbackAnimals,
+                            animalLoadError = if (animalsResult is BluePatitasResult.Success) null else it.animalLoadError,
+                            usingFallbackMonitoring = if (zonesResult is BluePatitasResult.Success) false else it.usingFallbackMonitoring,
+                            monitoringLoadError = if (zonesResult is BluePatitasResult.Success) null else it.monitoringLoadError
+                        )
+                    }
+                }
+
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        isAssigningAnimalZone = false,
+                        animalZoneAssignmentError = result.throwable.toAnimalActionError()
+                    )
+                }
+            }
+        }
+    }
+
     fun closeAnimalDetail() {
         remoteState.update {
             it.copy(
@@ -495,7 +610,12 @@ class MainDataViewModel @Inject constructor(
                 selectedHealthCondition = null,
                 isUpdatingAnimalHealth = false,
                 animalHealthUpdateError = null,
-                animalHealthUpdatedMessageVisible = false
+                animalHealthUpdatedMessageVisible = false,
+                showZoneAssignmentEditor = false,
+                selectedPerimeterId = null,
+                isAssigningAnimalZone = false,
+                animalZoneAssignmentError = null,
+                animalZoneAssignedMessageVisible = false
             )
         }
     }

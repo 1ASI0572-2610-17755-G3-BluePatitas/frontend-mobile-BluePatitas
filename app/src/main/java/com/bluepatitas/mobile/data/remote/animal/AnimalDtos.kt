@@ -32,3 +32,7 @@ data class RegisterAnimalRequestDto(
 data class UpdateHealthRequestDto(
     val healthCondition: String
 )
+
+data class AssignPerimeterRequestDto(
+    val perimeterId: String?
+)

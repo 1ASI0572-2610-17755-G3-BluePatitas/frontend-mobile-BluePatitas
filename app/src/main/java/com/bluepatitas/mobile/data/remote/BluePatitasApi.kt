@@ -1,6 +1,7 @@
 package com.bluepatitas.mobile.data.remote
 
 import com.bluepatitas.mobile.data.remote.animal.AnimalDto
+import com.bluepatitas.mobile.data.remote.animal.AssignPerimeterRequestDto
 import com.bluepatitas.mobile.data.remote.animal.RegisterAnimalRequestDto
 import com.bluepatitas.mobile.data.remote.animal.UpdateHealthRequestDto
 import com.bluepatitas.mobile.data.remote.auth.AuthenticatedUserDto
@@ -61,6 +62,12 @@ interface BluePatitasApi {
     suspend fun updateAnimalHealth(
         @Path("id") id: String,
         @Body request: UpdateHealthRequestDto
+    ): Response<AnimalDto>
+
+    @PUT("api/animals/{id}/perimeter")
+    suspend fun assignAnimalToPerimeter(
+        @Path("id") id: String,
+        @Body request: AssignPerimeterRequestDto
     ): Response<AnimalDto>
 
     @Multipart

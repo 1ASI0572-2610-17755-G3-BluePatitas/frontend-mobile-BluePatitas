@@ -9,5 +9,6 @@ interface AnimalRepository {
     suspend fun getAnimal(id: String): BluePatitasResult<AnimalSummary>
     suspend fun registerAnimal(form: RegisterAnimalForm): BluePatitasResult<Unit>
     suspend fun updateHealthCondition(id: String, healthCondition: String): BluePatitasResult<Unit>
+    suspend fun assignAnimalToPerimeter(id: String, perimeterId: String?): BluePatitasResult<Unit>
     suspend fun uploadAnimalImage(imageUri: String): BluePatitasResult<String>
 }

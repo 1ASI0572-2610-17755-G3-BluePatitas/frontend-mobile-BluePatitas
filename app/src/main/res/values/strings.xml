@@ -176,6 +176,14 @@
     <string name="animal_detail_title">Animal detail</string>
     <string name="animal_detail_subtitle">Shelter animal profile</string>
     <string name="assigned_perimeter">Assigned perimeter</string>
+    <string name="assigned_zone">Assigned zone</string>
+    <string name="no_assigned_zone">No assigned zone</string>
+    <string name="assign_zone">Assign zone</string>
+    <string name="change_zone">Change zone</string>
+    <string name="remove_zone">Remove zone</string>
+    <string name="animal_assigned_to_zone">Animal assigned to zone.</string>
+    <string name="no_zones_available">No zones available. Create a zone in Monitoring.</string>
+    <string name="camera">Camera</string>
     <string name="placeholder_dog">DOG</string>
     <string name="placeholder_cat">CAT</string>
     <string name="placeholder_pet">PET</string>

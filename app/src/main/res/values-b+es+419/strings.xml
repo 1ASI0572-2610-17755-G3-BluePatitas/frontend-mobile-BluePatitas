@@ -176,6 +176,14 @@
     <string name="animal_detail_title">Detalle del animal</string>
     <string name="animal_detail_subtitle">Ficha del animal del refugio</string>
     <string name="assigned_perimeter">Perímetro asignado</string>
+    <string name="assigned_zone">Zona asignada</string>
+    <string name="no_assigned_zone">Sin zona asignada</string>
+    <string name="assign_zone">Asignar zona</string>
+    <string name="change_zone">Cambiar zona</string>
+    <string name="remove_zone">Quitar zona</string>
+    <string name="animal_assigned_to_zone">Animal asignado a la zona.</string>
+    <string name="no_zones_available">No hay zonas disponibles. Crea una zona en Monitoring.</string>
+    <string name="camera">Cámara</string>
     <string name="placeholder_dog">PERRO</string>
     <string name="placeholder_cat">GATO</string>
     <string name="placeholder_pet">MASCOTA</string>

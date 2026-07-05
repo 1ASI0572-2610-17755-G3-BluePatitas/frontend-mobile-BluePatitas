@@ -9,5 +9,6 @@ data class AnimalSummary(
     val estimatedAgeMonths: Int?,
     val healthCondition: String?,
     val weightKg: Double?,
-    val zoneName: String?
+    val zoneName: String?,
+    val assignedPerimeterId: String? = null
 )

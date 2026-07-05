@@ -151,6 +151,12 @@ fun AdminAnimalsRoute(
                 onSelectHealthCondition = viewModel::selectHealthCondition,
                 onUpdateAnimalHealth = viewModel::updateAnimalHealth,
                 onDismissHealthUpdatedMessage = viewModel::dismissAnimalHealthUpdatedMessage,
+                onShowZoneAssignmentEditor = viewModel::showZoneAssignmentEditor,
+                onHideZoneAssignmentEditor = viewModel::hideZoneAssignmentEditor,
+                onSelectPerimeter = viewModel::selectPerimeter,
+                onAssignAnimalToZone = viewModel::assignAnimalToSelectedZone,
+                onRemoveAnimalZone = viewModel::removeAnimalZoneAssignment,
+                onDismissZoneAssignedMessage = viewModel::dismissAnimalZoneAssignedMessage,
                 onCloseAnimalDetail = viewModel::closeAnimalDetail
             )
         }
@@ -407,6 +413,12 @@ private fun AnimalsContent(
     onSelectHealthCondition: (String) -> Unit,
     onUpdateAnimalHealth: () -> Unit,
     onDismissHealthUpdatedMessage: () -> Unit,
+    onShowZoneAssignmentEditor: () -> Unit,
+    onHideZoneAssignmentEditor: () -> Unit,
+    onSelectPerimeter: (String) -> Unit,
+    onAssignAnimalToZone: () -> Unit,
+    onRemoveAnimalZone: () -> Unit,
+    onDismissZoneAssignedMessage: () -> Unit,
     onCloseAnimalDetail: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -471,12 +483,24 @@ private fun AnimalsContent(
                 isUpdatingHealth = state.isUpdatingAnimalHealth,
                 healthUpdateError = state.animalHealthUpdateError,
                 healthUpdatedMessageVisible = state.animalHealthUpdatedMessageVisible,
+                zones = state.zones,
+                showZoneAssignmentEditor = state.showZoneAssignmentEditor,
+                selectedPerimeterId = state.selectedPerimeterId,
+                isAssigningZone = state.isAssigningAnimalZone,
+                zoneAssignmentError = state.animalZoneAssignmentError,
+                zoneAssignedMessageVisible = state.animalZoneAssignedMessageVisible,
                 onRetry = onRetryAnimalDetail,
                 onShowHealthEditor = onShowHealthEditor,
                 onHideHealthEditor = onHideHealthEditor,
                 onSelectHealthCondition = onSelectHealthCondition,
                 onUpdateAnimalHealth = onUpdateAnimalHealth,
                 onDismissHealthUpdatedMessage = onDismissHealthUpdatedMessage,
+                onShowZoneAssignmentEditor = onShowZoneAssignmentEditor,
+                onHideZoneAssignmentEditor = onHideZoneAssignmentEditor,
+                onSelectPerimeter = onSelectPerimeter,
+                onAssignAnimalToZone = onAssignAnimalToZone,
+                onRemoveAnimalZone = onRemoveAnimalZone,
+                onDismissZoneAssignedMessage = onDismissZoneAssignedMessage,
                 onDismiss = onCloseAnimalDetail
             )
         }
@@ -825,7 +849,12 @@ private fun AnimalSummaryCard(animal: AnimalSummary, onClick: () -> Unit) {
                     text = stringResource(
                         R.string.animal_weight_zone,
                         animal.weightKg?.toString() ?: stringResource(R.string.not_available),
-                        animal.zoneName ?: stringResource(R.string.not_available)
+                        animal.zoneName
+                            ?: if (animal.assignedPerimeterId != null) {
+                                stringResource(R.string.assigned_zone)
+                            } else {
+                                stringResource(R.string.no_assigned_zone)
+                            }
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MutedInk
@@ -964,14 +993,33 @@ private fun AnimalDetailDialog(
     isUpdatingHealth: Boolean,
     healthUpdateError: AnimalActionError?,
     healthUpdatedMessageVisible: Boolean,
+    zones: List<MonitoringZone>,
+    showZoneAssignmentEditor: Boolean,
+    selectedPerimeterId: String?,
+    isAssigningZone: Boolean,
+    zoneAssignmentError: AnimalActionError?,
+    zoneAssignedMessageVisible: Boolean,
     onRetry: () -> Unit,
     onShowHealthEditor: () -> Unit,
     onHideHealthEditor: () -> Unit,
     onSelectHealthCondition: (String) -> Unit,
     onUpdateAnimalHealth: () -> Unit,
     onDismissHealthUpdatedMessage: () -> Unit,
+    onShowZoneAssignmentEditor: () -> Unit,
+    onHideZoneAssignmentEditor: () -> Unit,
+    onSelectPerimeter: (String) -> Unit,
+    onAssignAnimalToZone: () -> Unit,
+    onRemoveAnimalZone: () -> Unit,
+    onDismissZoneAssignedMessage: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val assignedZone = animal.assignedPerimeterId?.let { perimeterId ->
+        zones.firstOrNull { it.id == perimeterId }
+    }
+    val assignedZoneLabel = assignedZone?.name
+        ?: animal.zoneName
+        ?: animal.assignedPerimeterId?.let { stringResource(R.string.assigned_zone) }
+        ?: stringResource(R.string.no_assigned_zone)
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -1051,11 +1099,177 @@ private fun AnimalDetailDialog(
                             )
                         }
                     }
-                    item { DetailRow(stringResource(R.string.assigned_perimeter), animal.zoneName ?: stringResource(R.string.not_available)) }
+                    if (zoneAssignedMessageVisible) {
+                        item {
+                            SuccessPanel(
+                                text = stringResource(R.string.animal_assigned_to_zone),
+                                onDismiss = onDismissZoneAssignedMessage
+                            )
+                        }
+                    }
+                    item {
+                        ZoneAssignmentSection(
+                            assignedZoneLabel = assignedZoneLabel,
+                            hasAssignedZone = animal.assignedPerimeterId != null,
+                            zones = zones,
+                            selectedPerimeterId = selectedPerimeterId,
+                            showEditor = showZoneAssignmentEditor,
+                            isAssigning = isAssigningZone,
+                            error = zoneAssignmentError,
+                            onShowEditor = onShowZoneAssignmentEditor,
+                            onHideEditor = onHideZoneAssignmentEditor,
+                            onSelectPerimeter = onSelectPerimeter,
+                            onConfirm = onAssignAnimalToZone,
+                            onRemove = onRemoveAnimalZone
+                        )
+                    }
                 }
                 item {
                     BluePatitasOutlinedButton(text = stringResource(R.string.close), onClick = onDismiss)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ZoneAssignmentSection(
+    assignedZoneLabel: String,
+    hasAssignedZone: Boolean,
+    zones: List<MonitoringZone>,
+    selectedPerimeterId: String?,
+    showEditor: Boolean,
+    isAssigning: Boolean,
+    error: AnimalActionError?,
+    onShowEditor: () -> Unit,
+    onHideEditor: () -> Unit,
+    onSelectPerimeter: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFF7FAFD),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFFE3F0FF))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.assigned_zone),
+                style = MaterialTheme.typography.titleSmall,
+                color = BlueDark,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = assignedZoneLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (hasAssignedZone) BluePrimary else MutedInk,
+                fontWeight = FontWeight.Medium
+            )
+            error?.let {
+                WarningPanel(it.asString())
+            }
+            if (showEditor) {
+                if (zones.isEmpty()) {
+                    EmptyPanel(stringResource(R.string.no_zones_available))
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        zones.forEach { zone ->
+                            ZoneAssignmentOption(
+                                zone = zone,
+                                selected = selectedPerimeterId == zone.id,
+                                onSelect = { onSelectPerimeter(zone.id) }
+                            )
+                        }
+                    }
+                }
+                if (isAssigning) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = BluePrimary,
+                        trackColor = Color(0xFFDCEAF8)
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BluePatitasOutlinedButton(
+                        text = stringResource(R.string.cancel),
+                        onClick = onHideEditor,
+                        enabled = !isAssigning,
+                        modifier = Modifier.weight(1f)
+                    )
+                    BluePatitasPrimaryButton(
+                        text = stringResource(R.string.assign_zone),
+                        onClick = onConfirm,
+                        enabled = !isAssigning && selectedPerimeterId != null && zones.isNotEmpty(),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (hasAssignedZone) {
+                    BluePatitasOutlinedButton(
+                        text = stringResource(R.string.remove_zone),
+                        onClick = onRemove,
+                        enabled = !isAssigning
+                    )
+                }
+            } else {
+                BluePatitasOutlinedButton(
+                    text = if (hasAssignedZone) stringResource(R.string.change_zone) else stringResource(R.string.assign_zone),
+                    onClick = onShowEditor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ZoneAssignmentOption(
+    zone: MonitoringZone,
+    selected: Boolean,
+    onSelect: () -> Unit
+) {
+    Card(
+        onClick = onSelect,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) Color(0xFFEAF4FF) else Color.White
+        ),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(
+            1.dp,
+            if (selected) BluePrimary else Color(0xFFE3F0FF)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = zone.name,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = BlueDark,
+                    fontWeight = FontWeight.Bold
+                )
+                StatusPill(
+                    text = zone.status.ifBlank { stringResource(R.string.normal) },
+                    critical = zone.status.contains("alert", ignoreCase = true)
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SmallMetric(
+                    label = stringResource(R.string.camera),
+                    value = if (zone.cameraEnabled) stringResource(R.string.enabled) else stringResource(R.string.disabled),
+                    modifier = Modifier.weight(1f)
+                )
+                SmallMetric(
+                    label = stringResource(R.string.animals),
+                    value = zone.animalCount.toString(),
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }

@@ -7,6 +7,7 @@ import android.util.Log
 import com.bluepatitas.mobile.core.common.BluePatitasResult
 import com.bluepatitas.mobile.data.remote.BluePatitasApi
 import com.bluepatitas.mobile.data.remote.animal.AnimalDto
+import com.bluepatitas.mobile.data.remote.animal.AssignPerimeterRequestDto
 import com.bluepatitas.mobile.data.remote.animal.RegisterAnimalRequestDto
 import com.bluepatitas.mobile.data.remote.animal.UpdateHealthRequestDto
 import com.bluepatitas.mobile.domain.model.AuthFailureReason
@@ -88,6 +89,22 @@ class RealAnimalRepository @Inject constructor(
             val response = api.updateAnimalHealth(
                 id = id,
                 request = UpdateHealthRequestDto(healthCondition = healthCondition)
+            )
+            if (response.isSuccessful) {
+                BluePatitasResult.Success(Unit)
+            } else {
+                throw response.toAnimalException()
+            }
+        }
+
+    override suspend fun assignAnimalToPerimeter(
+        id: String,
+        perimeterId: String?
+    ): BluePatitasResult<Unit> =
+        runAnimalRequest("PUT /api/animals/$id/perimeter") {
+            val response = api.assignAnimalToPerimeter(
+                id = id,
+                request = AssignPerimeterRequestDto(perimeterId = perimeterId)
             )
             if (response.isSuccessful) {
                 BluePatitasResult.Success(Unit)
@@ -195,7 +212,8 @@ private fun AnimalDto.toDomain(): AnimalSummary =
         estimatedAgeMonths = speciesDetails?.estimatedAgeMonths,
         healthCondition = healthCondition,
         weightKg = weightKg,
-        zoneName = assignedPerimeterId
+        zoneName = null,
+        assignedPerimeterId = assignedPerimeterId
     )
 
 private fun Context.displayName(uri: Uri): String? =
