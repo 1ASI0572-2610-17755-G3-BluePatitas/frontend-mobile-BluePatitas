@@ -4,16 +4,22 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.bluepatitas.mobile.data.repository.DataStoreAppPreferencesRepository
+import com.bluepatitas.mobile.data.repository.DataStoreEdgeGatewaySettingsRepository
 import com.bluepatitas.mobile.data.repository.DataStoreSessionRepository
 import com.bluepatitas.mobile.data.repository.DataStoreShelterRepository
 import com.bluepatitas.mobile.data.repository.FakeAuthRepository
 import com.bluepatitas.mobile.data.repository.RealAnimalRepository
 import com.bluepatitas.mobile.data.repository.RealAuthRepository
+import com.bluepatitas.mobile.data.repository.RealEdgeGatewayRepository
+import com.bluepatitas.mobile.data.repository.RealFeedingRepository
 import com.bluepatitas.mobile.data.repository.RealMonitoringRepository
 import com.bluepatitas.mobile.data.repository.RealVeterinaryRepository
 import com.bluepatitas.mobile.domain.repository.AnimalRepository
 import com.bluepatitas.mobile.domain.repository.AppPreferencesRepository
 import com.bluepatitas.mobile.domain.repository.AuthRepository
+import com.bluepatitas.mobile.domain.repository.EdgeGatewayRepository
+import com.bluepatitas.mobile.domain.repository.EdgeGatewaySettingsRepository
+import com.bluepatitas.mobile.domain.repository.FeedingRepository
 import com.bluepatitas.mobile.domain.repository.MonitoringRepository
 import com.bluepatitas.mobile.domain.repository.SessionRepository
 import com.bluepatitas.mobile.domain.repository.ShelterRepository
@@ -43,6 +49,12 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
+    abstract fun bindEdgeGatewaySettingsRepository(
+        repository: DataStoreEdgeGatewaySettingsRepository
+    ): EdgeGatewaySettingsRepository
+
+    @Binds
+    @Singleton
     abstract fun bindAuthRepository(
         repository: RealAuthRepository
     ): AuthRepository
@@ -64,6 +76,18 @@ abstract class RepositoryModule {
     abstract fun bindAnimalRepository(
         repository: RealAnimalRepository
     ): AnimalRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindFeedingRepository(
+        repository: RealFeedingRepository
+    ): FeedingRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindEdgeGatewayRepository(
+        repository: RealEdgeGatewayRepository
+    ): EdgeGatewayRepository
 
     @Binds
     @Singleton

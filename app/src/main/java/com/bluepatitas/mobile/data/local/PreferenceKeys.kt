@@ -25,4 +25,5 @@ object PreferenceKeys {
     val ShelterReference = stringPreferencesKey("shelter_reference")
     val ShelterDistrict = stringPreferencesKey("shelter_district")
     val ShelterCity = stringPreferencesKey("shelter_city")
+    val EdgeGatewayUrl = stringPreferencesKey("edge_gateway_url")
 }

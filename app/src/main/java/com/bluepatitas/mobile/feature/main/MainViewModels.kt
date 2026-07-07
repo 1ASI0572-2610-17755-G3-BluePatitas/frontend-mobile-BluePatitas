@@ -4,27 +4,48 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bluepatitas.mobile.core.common.BluePatitasResult
 import com.bluepatitas.mobile.data.repository.AnimalRepositoryException
+import com.bluepatitas.mobile.data.repository.EdgeGatewayRepositoryException
+import com.bluepatitas.mobile.data.repository.FeedingRepositoryException
 import com.bluepatitas.mobile.data.repository.MonitoringRepositoryException
 import com.bluepatitas.mobile.domain.model.AuthFailureReason
 import com.bluepatitas.mobile.domain.model.AnimalSummary
 import com.bluepatitas.mobile.domain.model.AppSession
 import com.bluepatitas.mobile.domain.model.CreateMonitoringZoneForm
+import com.bluepatitas.mobile.domain.model.DEFAULT_EDGE_GATEWAY_URL
+import com.bluepatitas.mobile.domain.model.DispenserSchedule
+import com.bluepatitas.mobile.domain.model.DispenserStatus
+import com.bluepatitas.mobile.domain.model.EdgeSimulatorStatus
+import com.bluepatitas.mobile.domain.model.FeedingPlan
+import com.bluepatitas.mobile.domain.model.FeedingPlanForm
+import com.bluepatitas.mobile.domain.model.FeedingPlanStatus
 import com.bluepatitas.mobile.domain.model.MonitoringAlert
 import com.bluepatitas.mobile.domain.model.MonitoringZone
 import com.bluepatitas.mobile.domain.model.RegisterAnimalForm
 import com.bluepatitas.mobile.domain.model.TelemetryRecord
 import com.bluepatitas.mobile.domain.repository.MonitoringRepository
+import com.bluepatitas.mobile.domain.usecase.ActivateFeedingPlanUseCase
 import com.bluepatitas.mobile.domain.usecase.AssignAnimalToPerimeterUseCase
 import com.bluepatitas.mobile.domain.usecase.CreateAnimalUseCase
+import com.bluepatitas.mobile.domain.usecase.CreateFeedingPlanUseCase
 import com.bluepatitas.mobile.domain.usecase.CreateMonitoringZoneUseCase
+import com.bluepatitas.mobile.domain.usecase.DeactivateFeedingPlanUseCase
 import com.bluepatitas.mobile.domain.usecase.EnableAlertTrackingUseCase
+import com.bluepatitas.mobile.domain.usecase.ConfigureDispenserScheduleUseCase
+import com.bluepatitas.mobile.domain.usecase.ForceDispenserFeedUseCase
 import com.bluepatitas.mobile.domain.usecase.GetAnimalDetailUseCase
 import com.bluepatitas.mobile.domain.usecase.GetAnimalsUseCase
+import com.bluepatitas.mobile.domain.usecase.GetEdgeGatewaySnapshotUseCase
+import com.bluepatitas.mobile.domain.usecase.GetFeedingPlansByAnimalUseCase
+import com.bluepatitas.mobile.domain.usecase.GetFeedingPlansUseCase
 import com.bluepatitas.mobile.domain.usecase.GetMonitoringAlertsUseCase
 import com.bluepatitas.mobile.domain.usecase.GetMonitoringZonesUseCase
 import com.bluepatitas.mobile.domain.usecase.GetTelemetryUseCase
 import com.bluepatitas.mobile.domain.usecase.ResolveMonitoringAlertUseCase
+import com.bluepatitas.mobile.domain.usecase.ObserveEdgeGatewayUrlUseCase
+import com.bluepatitas.mobile.domain.usecase.ResetEdgeGatewayUrlUseCase
+import com.bluepatitas.mobile.domain.usecase.SaveEdgeGatewayUrlUseCase
 import com.bluepatitas.mobile.domain.usecase.UpdateAnimalHealthUseCase
+import com.bluepatitas.mobile.domain.usecase.UpdateFeedingPlanUseCase
 import com.bluepatitas.mobile.domain.usecase.UploadAnimalImageUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -82,7 +103,37 @@ data class MainDataUiState(
     val isEnablingTrackingAlertId: String? = null,
     val geofenceStatus: GeofenceStatus = GeofenceStatus.InsideSafeZone,
     val cameraPermissionDenied: Boolean = false,
-    val notificationPermissionDenied: Boolean = false
+    val notificationPermissionDenied: Boolean = false,
+    val feedingPlans: List<FeedingPlan> = emptyList(),
+    val isLoadingFeeding: Boolean = false,
+    val feedingLoadError: AnimalActionError? = null,
+    val feedingFilterAnimalId: String? = null,
+    val showFeedingPlanForm: Boolean = false,
+    val editingFeedingPlanId: String? = null,
+    val feedingForm: FeedingPlanFormUiState = FeedingPlanFormUiState(),
+    val feedingFormErrors: Map<String, FeedingFieldError> = emptyMap(),
+    val isSavingFeedingPlan: Boolean = false,
+    val feedingActionError: AnimalActionError? = null,
+    val feedingSuccessMessageVisible: Boolean = false,
+    val changingFeedingPlanId: String? = null,
+    val selectedAnimalFeedingPlans: List<FeedingPlan> = emptyList(),
+    val isLoadingSelectedAnimalFeeding: Boolean = false,
+    val selectedAnimalFeedingError: AnimalActionError? = null,
+    val showManageFeedingDialog: Boolean = false,
+    val edgeGatewayUrl: String = DEFAULT_EDGE_GATEWAY_URL,
+    val edgeGatewayUrlInput: String = DEFAULT_EDGE_GATEWAY_URL,
+    val showEdgeGatewaySettingsDialog: Boolean = false,
+    val edgeSimulatorStatus: EdgeSimulatorStatus? = null,
+    val dispenserStatus: DispenserStatus? = null,
+    val dispenserSchedule: DispenserSchedule? = null,
+    val dispenserIntervalInput: String = "cada 5 minuto",
+    val isRefreshingEdgeGateway: Boolean = false,
+    val edgeGatewayError: AnimalActionError? = null,
+    val edgeGatewayMessageVisible: Boolean = false,
+    val isTestingEdgeGateway: Boolean = false,
+    val isSavingEdgeGatewayUrl: Boolean = false,
+    val isForcingDispense: Boolean = false,
+    val isUpdatingDispenserSchedule: Boolean = false
 )
 
 data class MonitoringZoneFormUiState(
@@ -107,6 +158,17 @@ data class AnimalFormUiState(
     val selectedImageUri: String? = null
 )
 
+data class FeedingPlanFormUiState(
+    val animalId: String = "",
+    val dietName: String = "",
+    val nutritionalNotes: String = "",
+    val foodQuantity: String = "",
+    val foodUnit: String = "",
+    val timesPerDay: String = "",
+    val scheduledTimes: String = "",
+    val toleranceMinutes: String = "0"
+)
+
 enum class AnimalFieldError {
     Required,
     InvalidAge,
@@ -118,6 +180,12 @@ enum class MonitoringFieldError {
     InvalidNumber,
     InvalidCount,
     InvalidRange
+}
+
+enum class FeedingFieldError {
+    Required,
+    InvalidNumber,
+    InvalidCount
 }
 
 enum class AnimalActionError {
@@ -157,6 +225,18 @@ class MainDataViewModel @Inject constructor(
     private val updateAnimalHealthUseCase: UpdateAnimalHealthUseCase,
     private val assignAnimalToPerimeterUseCase: AssignAnimalToPerimeterUseCase,
     private val uploadAnimalImageUseCase: UploadAnimalImageUseCase,
+    private val getFeedingPlansUseCase: GetFeedingPlansUseCase,
+    private val getFeedingPlansByAnimalUseCase: GetFeedingPlansByAnimalUseCase,
+    private val createFeedingPlanUseCase: CreateFeedingPlanUseCase,
+    private val updateFeedingPlanUseCase: UpdateFeedingPlanUseCase,
+    private val activateFeedingPlanUseCase: ActivateFeedingPlanUseCase,
+    private val deactivateFeedingPlanUseCase: DeactivateFeedingPlanUseCase,
+    private val observeEdgeGatewayUrlUseCase: ObserveEdgeGatewayUrlUseCase,
+    private val saveEdgeGatewayUrlUseCase: SaveEdgeGatewayUrlUseCase,
+    private val resetEdgeGatewayUrlUseCase: ResetEdgeGatewayUrlUseCase,
+    private val getEdgeGatewaySnapshotUseCase: GetEdgeGatewaySnapshotUseCase,
+    private val forceDispenserFeedUseCase: ForceDispenserFeedUseCase,
+    private val configureDispenserScheduleUseCase: ConfigureDispenserScheduleUseCase,
     private val getMonitoringZonesUseCase: GetMonitoringZonesUseCase,
     private val getMonitoringAlertsUseCase: GetMonitoringAlertsUseCase,
     private val createMonitoringZoneUseCase: CreateMonitoringZoneUseCase,
@@ -171,6 +251,20 @@ class MainDataViewModel @Inject constructor(
     val uiState: StateFlow<MainDataUiState> = _uiState
 
     init {
+        viewModelScope.launch {
+            observeEdgeGatewayUrlUseCase().collect { url ->
+                remoteState.update {
+                    it.copy(
+                        edgeGatewayUrl = url,
+                        edgeGatewayUrlInput = if (it.edgeGatewayUrlInput.isBlank() || it.edgeGatewayUrlInput == it.edgeGatewayUrl) {
+                            url
+                        } else {
+                            it.edgeGatewayUrlInput
+                        }
+                    )
+                }
+            }
+        }
         viewModelScope.launch {
             combine(remoteState, monitoringRepository.localAlerts) { state, localAlerts ->
                 state.copy(
@@ -251,6 +345,424 @@ class MainDataViewModel @Inject constructor(
                 )
             }
             selectedZone?.targetId?.takeIf { it.isNotBlank() }?.let(::loadTelemetry)
+        }
+    }
+
+    fun refreshFeedingPlans() {
+        if (remoteState.value.isLoadingFeeding) return
+        viewModelScope.launch {
+            remoteState.update {
+                it.copy(
+                    isLoadingFeeding = true,
+                    feedingLoadError = null
+                )
+            }
+            val filterAnimalId = remoteState.value.feedingFilterAnimalId
+            val result = if (filterAnimalId.isNullOrBlank()) {
+                getFeedingPlansUseCase()
+            } else {
+                getFeedingPlansByAnimalUseCase(filterAnimalId)
+            }
+            when (result) {
+                is BluePatitasResult.Success -> remoteState.update {
+                    it.copy(
+                        feedingPlans = result.value,
+                        isLoadingFeeding = false,
+                        feedingLoadError = null
+                    )
+                }
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        isLoadingFeeding = false,
+                        feedingLoadError = result.throwable.toFeedingActionError()
+                    )
+                }
+            }
+        }
+    }
+
+    fun selectFeedingFilter(animalId: String?) {
+        remoteState.update {
+            it.copy(
+                feedingFilterAnimalId = animalId,
+                feedingLoadError = null
+            )
+        }
+        refreshFeedingPlans()
+    }
+
+    fun showCreateFeedingPlanForm() {
+        val defaultAnimalId = remoteState.value.feedingFilterAnimalId ?: remoteState.value.animals.firstOrNull()?.id.orEmpty()
+        remoteState.update {
+            it.copy(
+                showFeedingPlanForm = true,
+                editingFeedingPlanId = null,
+                feedingForm = FeedingPlanFormUiState(animalId = defaultAnimalId),
+                feedingFormErrors = emptyMap(),
+                feedingActionError = null,
+                feedingSuccessMessageVisible = false
+            )
+        }
+    }
+
+    fun showCreateFeedingPlanFormForAnimal(animalId: String) {
+        remoteState.update {
+            it.copy(
+                showFeedingPlanForm = true,
+                editingFeedingPlanId = null,
+                feedingForm = FeedingPlanFormUiState(animalId = animalId),
+                feedingFormErrors = emptyMap(),
+                feedingActionError = null,
+                feedingSuccessMessageVisible = false
+            )
+        }
+    }
+
+    fun showEditFeedingPlanForm(plan: FeedingPlan) {
+        remoteState.update {
+            it.copy(
+                showFeedingPlanForm = true,
+                editingFeedingPlanId = plan.id,
+                feedingForm = plan.toFormUiState(),
+                feedingFormErrors = emptyMap(),
+                feedingActionError = null,
+                feedingSuccessMessageVisible = false
+            )
+        }
+    }
+
+    fun hideFeedingPlanForm() {
+        remoteState.update {
+            it.copy(
+                showFeedingPlanForm = false,
+                editingFeedingPlanId = null,
+                feedingFormErrors = emptyMap(),
+                feedingActionError = null,
+                isSavingFeedingPlan = false
+            )
+        }
+    }
+
+    fun updateFeedingForm(field: String, value: String) {
+        remoteState.update { state ->
+            val sanitizedValue = when (field) {
+                "foodQuantity" -> value.sanitizeDecimalInput()
+                "timesPerDay", "toleranceMinutes" -> value.filter { it.isDigit() }
+                else -> value
+            }
+            val form = when (field) {
+                "animalId" -> state.feedingForm.copy(animalId = sanitizedValue)
+                "dietName" -> state.feedingForm.copy(dietName = sanitizedValue)
+                "nutritionalNotes" -> state.feedingForm.copy(nutritionalNotes = sanitizedValue)
+                "foodQuantity" -> state.feedingForm.copy(foodQuantity = sanitizedValue)
+                "foodUnit" -> state.feedingForm.copy(foodUnit = sanitizedValue)
+                "timesPerDay" -> state.feedingForm.copy(timesPerDay = sanitizedValue)
+                "scheduledTimes" -> state.feedingForm.copy(scheduledTimes = sanitizedValue)
+                "toleranceMinutes" -> state.feedingForm.copy(toleranceMinutes = sanitizedValue)
+                else -> state.feedingForm
+            }
+            state.copy(
+                feedingForm = form,
+                feedingFormErrors = state.feedingFormErrors - field,
+                feedingActionError = null
+            )
+        }
+    }
+
+    fun saveFeedingPlan() {
+        val state = remoteState.value
+        val errors = validateFeedingForm(state.feedingForm)
+        if (errors.isNotEmpty()) {
+            remoteState.update { it.copy(feedingFormErrors = errors) }
+            return
+        }
+        val form = state.feedingForm.toDomainForm() ?: return
+        viewModelScope.launch {
+            remoteState.update { it.copy(isSavingFeedingPlan = true, feedingActionError = null) }
+            val result = state.editingFeedingPlanId?.let { planId ->
+                updateFeedingPlanUseCase(planId, form)
+            } ?: createFeedingPlanUseCase(form)
+            when (result) {
+                is BluePatitasResult.Success -> {
+                    remoteState.update {
+                        it.copy(
+                            isSavingFeedingPlan = false,
+                            showFeedingPlanForm = false,
+                            editingFeedingPlanId = null,
+                            feedingForm = FeedingPlanFormUiState(),
+                            feedingFormErrors = emptyMap(),
+                            feedingSuccessMessageVisible = true
+                        )
+                    }
+                    refreshFeedingPlans()
+                    refreshSelectedAnimalFeeding()
+                }
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        isSavingFeedingPlan = false,
+                        feedingActionError = result.throwable.toFeedingActionError()
+                    )
+                }
+            }
+        }
+    }
+
+    fun dismissFeedingSuccessMessage() {
+        remoteState.update { it.copy(feedingSuccessMessageVisible = false) }
+    }
+
+    fun activateFeedingPlan(planId: String) {
+        changeFeedingPlanStatus(planId, activate = true)
+    }
+
+    fun deactivateFeedingPlan(planId: String) {
+        changeFeedingPlanStatus(planId, activate = false)
+    }
+
+    private fun changeFeedingPlanStatus(planId: String, activate: Boolean) {
+        viewModelScope.launch {
+            remoteState.update { it.copy(changingFeedingPlanId = planId, feedingActionError = null) }
+            val result = if (activate) activateFeedingPlanUseCase(planId) else deactivateFeedingPlanUseCase(planId)
+            when (result) {
+                is BluePatitasResult.Success -> {
+                    remoteState.update {
+                        it.copy(
+                            changingFeedingPlanId = null,
+                            feedingSuccessMessageVisible = true
+                        )
+                    }
+                    refreshFeedingPlans()
+                    refreshSelectedAnimalFeeding()
+                }
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        changingFeedingPlanId = null,
+                        feedingActionError = result.throwable.toFeedingActionError()
+                    )
+                }
+            }
+        }
+    }
+
+    fun showManageFeedingDialog() {
+        remoteState.update {
+            it.copy(
+                showManageFeedingDialog = true,
+                selectedAnimalFeedingError = null,
+                edgeGatewayError = null,
+                edgeGatewayMessageVisible = false
+            )
+        }
+        refreshSelectedAnimalFeeding()
+        refreshEdgeGateway()
+    }
+
+    fun hideManageFeedingDialog() {
+        remoteState.update {
+            it.copy(
+                showManageFeedingDialog = false,
+                edgeGatewayError = null,
+                edgeGatewayMessageVisible = false
+            )
+        }
+    }
+
+    fun refreshSelectedAnimalFeeding() {
+        val animalId = remoteState.value.selectedAnimalDetail?.id ?: return
+        viewModelScope.launch {
+            remoteState.update {
+                it.copy(
+                    isLoadingSelectedAnimalFeeding = true,
+                    selectedAnimalFeedingError = null
+                )
+            }
+            when (val result = getFeedingPlansByAnimalUseCase(animalId)) {
+                is BluePatitasResult.Success -> remoteState.update {
+                    it.copy(
+                        selectedAnimalFeedingPlans = result.value,
+                        isLoadingSelectedAnimalFeeding = false,
+                        selectedAnimalFeedingError = null
+                    )
+                }
+                is BluePatitasResult.Error -> {
+                    val error = result.throwable.toFeedingActionError()
+                    remoteState.update {
+                        it.copy(
+                            selectedAnimalFeedingPlans = if (error == AnimalActionError.EndpointNotFound) emptyList() else it.selectedAnimalFeedingPlans,
+                            isLoadingSelectedAnimalFeeding = false,
+                            selectedAnimalFeedingError = if (error == AnimalActionError.EndpointNotFound) null else error
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun showEdgeGatewaySettingsDialog() {
+        remoteState.update {
+            it.copy(
+                showEdgeGatewaySettingsDialog = true,
+                edgeGatewayUrlInput = it.edgeGatewayUrl,
+                edgeGatewayError = null,
+                edgeGatewayMessageVisible = false
+            )
+        }
+    }
+
+    fun hideEdgeGatewaySettingsDialog() {
+        remoteState.update {
+            it.copy(
+                showEdgeGatewaySettingsDialog = false,
+                edgeGatewayError = null,
+                edgeGatewayMessageVisible = false,
+                edgeGatewayUrlInput = it.edgeGatewayUrl
+            )
+        }
+    }
+
+    fun updateEdgeGatewayUrlInput(value: String) {
+        remoteState.update {
+            it.copy(
+                edgeGatewayUrlInput = value,
+                edgeGatewayError = null,
+                edgeGatewayMessageVisible = false
+            )
+        }
+    }
+
+    fun saveEdgeGatewayUrl() {
+        val url = remoteState.value.edgeGatewayUrlInput.normalizedGatewayUrl()
+        if (url.isBlank()) {
+            remoteState.update { it.copy(edgeGatewayError = AnimalActionError.BadRequest, edgeGatewayMessageVisible = false) }
+            return
+        }
+        viewModelScope.launch {
+            remoteState.update { it.copy(isSavingEdgeGatewayUrl = true, edgeGatewayError = null) }
+            saveEdgeGatewayUrlUseCase(url)
+            remoteState.update {
+                it.copy(
+                    isSavingEdgeGatewayUrl = false,
+                    edgeGatewayUrlInput = url,
+                    edgeGatewayMessageVisible = true
+                )
+            }
+        }
+    }
+
+    fun resetEdgeGatewayUrl() {
+        viewModelScope.launch {
+            resetEdgeGatewayUrlUseCase()
+            remoteState.update {
+                it.copy(
+                    edgeGatewayUrlInput = DEFAULT_EDGE_GATEWAY_URL,
+                    edgeGatewayError = null,
+                    edgeGatewayMessageVisible = true
+                )
+            }
+        }
+    }
+
+    fun testEdgeGatewayConnection() {
+        val url = remoteState.value.edgeGatewayUrlInput.normalizedGatewayUrl()
+        viewModelScope.launch {
+            remoteState.update { it.copy(isTestingEdgeGateway = true, edgeGatewayError = null, edgeGatewayMessageVisible = false) }
+            when (val result = getEdgeGatewaySnapshotUseCase(url)) {
+                is BluePatitasResult.Success -> remoteState.update {
+                    it.copy(
+                        edgeSimulatorStatus = result.value.simulatorStatus,
+                        dispenserStatus = result.value.dispenserStatus,
+                        dispenserSchedule = result.value.schedule,
+                        dispenserIntervalInput = result.value.schedule.intervalSeconds?.let(::secondsToIntervalText) ?: it.dispenserIntervalInput,
+                        isTestingEdgeGateway = false,
+                        edgeGatewayError = null,
+                        edgeGatewayMessageVisible = true
+                    )
+                }
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        isTestingEdgeGateway = false,
+                        edgeGatewayError = result.throwable.toEdgeActionError()
+                    )
+                }
+            }
+        }
+    }
+
+    fun refreshEdgeGateway() {
+        val url = remoteState.value.edgeGatewayUrl
+        viewModelScope.launch {
+            remoteState.update { it.copy(isRefreshingEdgeGateway = true, edgeGatewayError = null) }
+            when (val result = getEdgeGatewaySnapshotUseCase(url)) {
+                is BluePatitasResult.Success -> remoteState.update {
+                    it.copy(
+                        edgeSimulatorStatus = result.value.simulatorStatus,
+                        dispenserStatus = result.value.dispenserStatus,
+                        dispenserSchedule = result.value.schedule,
+                        dispenserIntervalInput = result.value.schedule.intervalSeconds?.let(::secondsToIntervalText) ?: it.dispenserIntervalInput,
+                        isRefreshingEdgeGateway = false,
+                        edgeGatewayError = null
+                    )
+                }
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        isRefreshingEdgeGateway = false,
+                        edgeGatewayError = result.throwable.toEdgeActionError()
+                    )
+                }
+            }
+        }
+    }
+
+    fun updateDispenserIntervalInput(value: String) {
+        remoteState.update {
+            it.copy(
+                dispenserIntervalInput = value,
+                edgeGatewayError = null,
+                edgeGatewayMessageVisible = false
+            )
+        }
+    }
+
+    fun forceDispense() {
+        val url = remoteState.value.edgeGatewayUrl
+        viewModelScope.launch {
+            remoteState.update { it.copy(isForcingDispense = true, edgeGatewayError = null, edgeGatewayMessageVisible = false) }
+            when (val result = forceDispenserFeedUseCase(url)) {
+                is BluePatitasResult.Success -> {
+                    remoteState.update {
+                        it.copy(isForcingDispense = false, edgeGatewayMessageVisible = true)
+                    }
+                    refreshEdgeGateway()
+                }
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(isForcingDispense = false, edgeGatewayError = result.throwable.toEdgeActionError())
+                }
+            }
+        }
+    }
+
+    fun configureDispenserSchedule(active: Boolean) {
+        val state = remoteState.value
+        val interval = state.dispenserIntervalInput.ifBlank { "cada 5 minuto" }
+        viewModelScope.launch {
+            remoteState.update { it.copy(isUpdatingDispenserSchedule = true, edgeGatewayError = null, edgeGatewayMessageVisible = false) }
+            when (val result = configureDispenserScheduleUseCase(state.edgeGatewayUrl, active, interval)) {
+                is BluePatitasResult.Success -> {
+                    remoteState.update {
+                        it.copy(
+                            isUpdatingDispenserSchedule = false,
+                            edgeGatewayMessageVisible = true
+                        )
+                    }
+                    refreshEdgeGateway()
+                }
+                is BluePatitasResult.Error -> remoteState.update {
+                    it.copy(
+                        isUpdatingDispenserSchedule = false,
+                        edgeGatewayError = result.throwable.toEdgeActionError()
+                    )
+                }
+            }
         }
     }
 
@@ -382,7 +894,10 @@ class MainDataViewModel @Inject constructor(
                 showZoneAssignmentEditor = false,
                 selectedPerimeterId = animal.assignedPerimeterId,
                 animalZoneAssignmentError = null,
-                animalZoneAssignedMessageVisible = false
+                animalZoneAssignedMessageVisible = false,
+                selectedAnimalFeedingPlans = emptyList(),
+                isLoadingSelectedAnimalFeeding = true,
+                selectedAnimalFeedingError = null
             )
         }
         viewModelScope.launch {
@@ -403,6 +918,7 @@ class MainDataViewModel @Inject constructor(
                     )
                 }
             }
+            refreshSelectedAnimalFeeding()
         }
     }
 
@@ -961,6 +1477,20 @@ private fun validateAnimalForm(form: AnimalFormUiState): Map<String, AnimalField
         if (weight == null || weight <= 0.0) put("weightKg", AnimalFieldError.InvalidWeight)
     }
 
+private fun validateFeedingForm(form: FeedingPlanFormUiState): Map<String, FeedingFieldError> =
+    buildMap {
+        if (form.animalId.isBlank()) put("animalId", FeedingFieldError.Required)
+        if (form.dietName.isBlank()) put("dietName", FeedingFieldError.Required)
+        val quantity = form.foodQuantity.toDoubleOrNull()
+        if (quantity == null || quantity <= 0.0) put("foodQuantity", FeedingFieldError.InvalidNumber)
+        if (form.foodUnit.isBlank()) put("foodUnit", FeedingFieldError.Required)
+        val times = form.timesPerDay.toIntOrNull()
+        if (times == null || times <= 0) put("timesPerDay", FeedingFieldError.InvalidCount)
+        if (form.scheduledTimes.isBlank()) put("scheduledTimes", FeedingFieldError.Required)
+        val tolerance = form.toleranceMinutes.toIntOrNull()
+        if (tolerance == null || tolerance < 0) put("toleranceMinutes", FeedingFieldError.InvalidCount)
+    }
+
 private fun validateZoneForm(form: MonitoringZoneFormUiState): Map<String, MonitoringFieldError> =
     buildMap {
         if (form.name.isBlank()) put("name", MonitoringFieldError.Required)
@@ -1020,6 +1550,34 @@ private fun AnimalFormUiState.toDomainForm(): RegisterAnimalForm? {
     )
 }
 
+private fun FeedingPlanFormUiState.toDomainForm(): FeedingPlanForm? {
+    val quantity = foodQuantity.toDoubleOrNull() ?: return null
+    val times = timesPerDay.toIntOrNull() ?: return null
+    val tolerance = toleranceMinutes.toIntOrNull() ?: return null
+    return FeedingPlanForm(
+        animalId = animalId,
+        dietName = dietName.trim(),
+        nutritionalNotes = nutritionalNotes.trim(),
+        foodQuantity = quantity,
+        foodUnit = foodUnit.trim(),
+        timesPerDay = times,
+        scheduledTimes = scheduledTimes.trim(),
+        toleranceMinutes = tolerance
+    )
+}
+
+private fun FeedingPlan.toFormUiState(): FeedingPlanFormUiState =
+    FeedingPlanFormUiState(
+        animalId = animalId,
+        dietName = dietType.name,
+        nutritionalNotes = dietType.nutritionalNotes.orEmpty(),
+        foodQuantity = foodAmount.quantity?.toString().orEmpty(),
+        foodUnit = foodAmount.unit,
+        timesPerDay = schedule.timesPerDay?.toString().orEmpty(),
+        scheduledTimes = schedule.scheduledTimes,
+        toleranceMinutes = schedule.toleranceMinutes?.toString() ?: "0"
+    )
+
 private fun itSelectedZoneOrFirst(selectedZone: MonitoringZone?, zones: List<MonitoringZone>): MonitoringZone? =
     selectedZone?.let { selected -> zones.firstOrNull { it.id == selected.id } } ?: zones.firstOrNull()
 
@@ -1063,6 +1621,34 @@ private fun Throwable.toMonitoringActionError(): AnimalActionError {
     }
 }
 
+private fun Throwable.toFeedingActionError(): AnimalActionError {
+    val reason = (this as? FeedingRepositoryException)?.reason
+    return when (reason) {
+        AuthFailureReason.BadRequest -> AnimalActionError.BadRequest
+        AuthFailureReason.SessionExpired -> AnimalActionError.SessionExpired
+        AuthFailureReason.EndpointNotFound -> AnimalActionError.EndpointNotFound
+        AuthFailureReason.ServerError -> AnimalActionError.ServerError
+        AuthFailureReason.Timeout -> AnimalActionError.Timeout
+        AuthFailureReason.Network -> AnimalActionError.Network
+        AuthFailureReason.Serialization -> AnimalActionError.ResponseFormat
+        AuthFailureReason.Conflict, AuthFailureReason.MissingRole, AuthFailureReason.Unknown, null -> AnimalActionError.Unknown
+    }
+}
+
+private fun Throwable.toEdgeActionError(): AnimalActionError {
+    val reason = (this as? EdgeGatewayRepositoryException)?.reason
+    return when (reason) {
+        AuthFailureReason.BadRequest -> AnimalActionError.BadRequest
+        AuthFailureReason.SessionExpired -> AnimalActionError.SessionExpired
+        AuthFailureReason.EndpointNotFound -> AnimalActionError.EndpointNotFound
+        AuthFailureReason.ServerError -> AnimalActionError.ServerError
+        AuthFailureReason.Timeout -> AnimalActionError.Timeout
+        AuthFailureReason.Network -> AnimalActionError.Network
+        AuthFailureReason.Serialization -> AnimalActionError.ResponseFormat
+        AuthFailureReason.Conflict, AuthFailureReason.MissingRole, AuthFailureReason.Unknown, null -> AnimalActionError.Unknown
+    }
+}
+
 private fun Throwable.toAnimalActionError(forImageUpload: Boolean): AnimalActionError {
     val reason = (this as? AnimalRepositoryException)?.reason
     return when (reason) {
@@ -1089,4 +1675,14 @@ private fun AnimalActionError?.allowsDemoFallback(): Boolean =
         AnimalActionError.EndpointNotFound,
         AnimalActionError.ResponseFormat,
         null -> false
+    }
+
+private fun String.normalizedGatewayUrl(): String =
+    trim().trimEnd('/')
+
+private fun secondsToIntervalText(seconds: Int): String =
+    when {
+        seconds <= 0 -> "cada 5 minuto"
+        seconds % 60 == 0 -> "cada ${seconds / 60} minuto"
+        else -> "cada $seconds segundo"
     }

@@ -152,7 +152,11 @@ fun RoleNavigationScaffold(
                             }
 
                             session.role == UserRole.SHELTER_ADMIN && destination.route == "admin_profile" -> {
-                                ProfileRoute(session = session, onSignOut = onSignOut)
+                                ProfileRoute(
+                                    session = session,
+                                    onSignOut = onSignOut,
+                                    viewModel = requireNotNull(adminMainDataViewModel)
+                                )
                             }
 
                             session.role == UserRole.VETERINARIAN && destination.route == "vet_home" -> {

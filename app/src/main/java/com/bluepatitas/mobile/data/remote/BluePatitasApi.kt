@@ -8,6 +8,9 @@ import com.bluepatitas.mobile.data.remote.auth.AuthenticatedUserDto
 import com.bluepatitas.mobile.data.remote.auth.SignInRequest
 import com.bluepatitas.mobile.data.remote.auth.SignUpRequestDto
 import com.bluepatitas.mobile.data.remote.auth.UserDto
+import com.bluepatitas.mobile.data.remote.feeding.CreateFeedingPlanRequestDto
+import com.bluepatitas.mobile.data.remote.feeding.FeedingPlanDto
+import com.bluepatitas.mobile.data.remote.feeding.UpdateFeedingPlanRequestDto
 import com.bluepatitas.mobile.data.remote.media.MediaUploadResponseDto
 import com.bluepatitas.mobile.data.remote.monitoring.EnableTrackingRequestDto
 import com.bluepatitas.mobile.data.remote.monitoring.MonitoringZoneDto
@@ -69,6 +72,27 @@ interface BluePatitasApi {
         @Path("id") id: String,
         @Body request: AssignPerimeterRequestDto
     ): Response<AnimalDto>
+
+    @GET("api/feeding/plans")
+    suspend fun getFeedingPlans(): List<FeedingPlanDto>
+
+    @POST("api/feeding/plans")
+    suspend fun createFeedingPlan(@Body request: CreateFeedingPlanRequestDto): Response<FeedingPlanDto>
+
+    @GET("api/feeding/plans/{animalId}")
+    suspend fun getFeedingPlansByAnimal(@Path("animalId") animalId: String): List<FeedingPlanDto>
+
+    @PUT("api/feeding/plans/{id}")
+    suspend fun updateFeedingPlan(
+        @Path("id") id: String,
+        @Body request: UpdateFeedingPlanRequestDto
+    ): Response<FeedingPlanDto>
+
+    @PUT("api/feeding/plans/{id}/activate")
+    suspend fun activateFeedingPlan(@Path("id") id: String): Response<FeedingPlanDto>
+
+    @PUT("api/feeding/plans/{id}/deactivate")
+    suspend fun deactivateFeedingPlan(@Path("id") id: String): Response<FeedingPlanDto>
 
     @Multipart
     @POST("api/v1/media/upload")

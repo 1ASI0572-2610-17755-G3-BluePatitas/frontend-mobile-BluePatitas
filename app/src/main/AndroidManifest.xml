@@ -18,6 +18,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.BluePatitas"
+        android:usesCleartextTraffic="true"
         tools:targetApi="tiramisu">
         <activity
             android:name=".app.MainActivity"

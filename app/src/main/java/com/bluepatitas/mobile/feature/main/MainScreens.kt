@@ -85,6 +85,12 @@ import com.bluepatitas.mobile.core.designsystem.theme.Ink
 import com.bluepatitas.mobile.core.designsystem.theme.MutedInk
 import com.bluepatitas.mobile.domain.model.AnimalSummary
 import com.bluepatitas.mobile.domain.model.AppSession
+import com.bluepatitas.mobile.domain.model.DispenserSchedule
+import com.bluepatitas.mobile.domain.model.DispenserStatus
+import com.bluepatitas.mobile.domain.model.EdgeSimulatorStatus
+import com.bluepatitas.mobile.domain.model.FeedingPlan
+import com.bluepatitas.mobile.domain.model.FeedingPlanStatus
+import com.bluepatitas.mobile.domain.model.FoodAmount
 import com.bluepatitas.mobile.domain.model.MonitoringAlert
 import com.bluepatitas.mobile.domain.model.MonitoringZone
 import com.bluepatitas.mobile.domain.model.TelemetryRecord
@@ -123,6 +129,32 @@ fun AdminHomeRoute(
 }
 
 @Composable
+fun AdminFeedingRoute(
+    modifier: Modifier = Modifier,
+    viewModel: MainDataViewModel = hiltViewModel()
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) {
+        viewModel.refreshFeedingPlans()
+    }
+    MainSurface(modifier = modifier) {
+        FeedingContent(
+            state = state,
+            onRefresh = viewModel::refreshFeedingPlans,
+            onFilterAnimal = viewModel::selectFeedingFilter,
+            onShowCreate = viewModel::showCreateFeedingPlanForm,
+            onShowEdit = viewModel::showEditFeedingPlanForm,
+            onDismissForm = viewModel::hideFeedingPlanForm,
+            onFormChange = viewModel::updateFeedingForm,
+            onSave = viewModel::saveFeedingPlan,
+            onActivate = viewModel::activateFeedingPlan,
+            onDeactivate = viewModel::deactivateFeedingPlan,
+            onDismissSuccess = viewModel::dismissFeedingSuccessMessage
+        )
+    }
+}
+
+@Composable
 fun AdminAnimalsRoute(
     modifier: Modifier = Modifier,
     viewModel: MainDataViewModel = hiltViewModel()
@@ -157,6 +189,27 @@ fun AdminAnimalsRoute(
                 onAssignAnimalToZone = viewModel::assignAnimalToSelectedZone,
                 onRemoveAnimalZone = viewModel::removeAnimalZoneAssignment,
                 onDismissZoneAssignedMessage = viewModel::dismissAnimalZoneAssignedMessage,
+                onShowManageFeeding = viewModel::showManageFeedingDialog,
+                onHideManageFeeding = viewModel::hideManageFeedingDialog,
+                onRefreshSelectedAnimalFeeding = viewModel::refreshSelectedAnimalFeeding,
+                onShowCreateFeedingPlanForAnimal = viewModel::showCreateFeedingPlanFormForAnimal,
+                onShowEditFeedingPlan = viewModel::showEditFeedingPlanForm,
+                onDismissFeedingPlanForm = viewModel::hideFeedingPlanForm,
+                onFeedingFormChange = viewModel::updateFeedingForm,
+                onSaveFeedingPlan = viewModel::saveFeedingPlan,
+                onActivateFeedingPlan = viewModel::activateFeedingPlan,
+                onDeactivateFeedingPlan = viewModel::deactivateFeedingPlan,
+                onDismissFeedingSuccess = viewModel::dismissFeedingSuccessMessage,
+                onRefreshEdgeGateway = viewModel::refreshEdgeGateway,
+                onForceDispense = viewModel::forceDispense,
+                onUpdateDispenserInterval = viewModel::updateDispenserIntervalInput,
+                onConfigureDispenserSchedule = viewModel::configureDispenserSchedule,
+                onShowEdgeGatewaySettings = viewModel::showEdgeGatewaySettingsDialog,
+                onHideEdgeGatewaySettings = viewModel::hideEdgeGatewaySettingsDialog,
+                onUpdateEdgeGatewayUrlInput = viewModel::updateEdgeGatewayUrlInput,
+                onSaveEdgeGatewayUrl = viewModel::saveEdgeGatewayUrl,
+                onResetEdgeGatewayUrl = viewModel::resetEdgeGatewayUrl,
+                onTestEdgeGateway = viewModel::testEdgeGatewayConnection,
                 onCloseAnimalDetail = viewModel::closeAnimalDetail
             )
         }
@@ -277,47 +330,95 @@ fun AlertsRoute(
 fun ProfileRoute(
     session: AppSession,
     onSignOut: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: MainDataViewModel = hiltViewModel()
 ) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     MainSurface(modifier = modifier) {
-        LazyColumn(
-            contentPadding = PaddingValues(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                ScreenHeader(
-                    title = stringResource(R.string.profile),
-                    subtitle = stringResource(R.string.profile_subtitle)
-                )
-            }
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(18.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                contentPadding = PaddingValues(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    ScreenHeader(
+                        title = stringResource(R.string.profile),
+                        subtitle = stringResource(R.string.profile_subtitle)
+                    )
+                }
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(18.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            InitialAvatar(text = session.displayName)
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Column {
-                                Text(session.displayName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                Text(session.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                InitialAvatar(text = session.displayName)
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column {
+                                    Text(session.displayName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                    Text(session.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
+                            InfoRow(stringResource(R.string.current_role), roleLabel(session.role))
+                            InfoRow(stringResource(R.string.shelter), session.shelterName ?: stringResource(R.string.not_available))
+                            InfoRow(stringResource(R.string.session_status), stringResource(R.string.active))
                         }
-                        InfoRow(stringResource(R.string.current_role), roleLabel(session.role))
-                        InfoRow(stringResource(R.string.shelter), session.shelterName ?: stringResource(R.string.not_available))
-                        InfoRow(stringResource(R.string.session_status), stringResource(R.string.active))
                     }
                 }
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.edge_gateway),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = BlueDark,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = stringResource(R.string.edge_gateway_description),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MutedInk
+                            )
+                            DetailRow(stringResource(R.string.edge_gateway_url), state.edgeGatewayUrl)
+                            BluePatitasOutlinedButton(
+                                text = stringResource(R.string.configure_edge_gateway),
+                                onClick = viewModel::showEdgeGatewaySettingsDialog
+                            )
+                        }
+                    }
+                }
+                item {
+                    BluePatitasOutlinedButton(
+                        text = stringResource(R.string.sign_out),
+                        onClick = onSignOut
+                    )
+                }
             }
-            item {
-                BluePatitasOutlinedButton(
-                    text = stringResource(R.string.sign_out),
-                    onClick = onSignOut
+            if (state.showEdgeGatewaySettingsDialog) {
+                EdgeGatewaySettingsDialog(
+                    url = state.edgeGatewayUrlInput,
+                    simulatorStatus = state.edgeSimulatorStatus,
+                    isTesting = state.isTestingEdgeGateway,
+                    isSaving = state.isSavingEdgeGatewayUrl,
+                    error = state.edgeGatewayError,
+                    messageVisible = state.edgeGatewayMessageVisible,
+                    onUrlChange = viewModel::updateEdgeGatewayUrlInput,
+                    onTest = viewModel::testEdgeGatewayConnection,
+                    onSave = viewModel::saveEdgeGatewayUrl,
+                    onReset = viewModel::resetEdgeGatewayUrl,
+                    onDismiss = viewModel::hideEdgeGatewaySettingsDialog
                 )
             }
         }
@@ -394,6 +495,359 @@ private fun DashboardContent(
 }
 
 @Composable
+private fun FeedingContent(
+    state: MainDataUiState,
+    onRefresh: () -> Unit,
+    onFilterAnimal: (String?) -> Unit,
+    onShowCreate: () -> Unit,
+    onShowEdit: (FeedingPlan) -> Unit,
+    onDismissForm: () -> Unit,
+    onFormChange: (String, String) -> Unit,
+    onSave: () -> Unit,
+    onActivate: (String) -> Unit,
+    onDeactivate: (String) -> Unit,
+    onDismissSuccess: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            contentPadding = PaddingValues(24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                ScreenHeader(
+                    title = stringResource(R.string.feeding),
+                    subtitle = stringResource(R.string.feeding_subtitle)
+                )
+            }
+            item {
+                BluePatitasPrimaryButton(
+                    text = stringResource(R.string.create_feeding_plan),
+                    onClick = onShowCreate
+                )
+            }
+            item {
+                FeedingAnimalFilter(
+                    animals = state.animals,
+                    selectedAnimalId = state.feedingFilterAnimalId,
+                    onSelect = onFilterAnimal
+                )
+            }
+            state.feedingSuccessMessageVisible.takeIf { it }?.let {
+                item {
+                    SuccessPanel(
+                        text = stringResource(R.string.feeding_plan_saved),
+                        onDismiss = onDismissSuccess
+                    )
+                }
+            }
+            state.feedingLoadError?.let {
+                item {
+                    WarningPanel(stringResource(R.string.feeding_load_error))
+                    BluePatitasOutlinedButton(text = stringResource(R.string.retry), onClick = onRefresh)
+                }
+            }
+            state.feedingActionError?.let {
+                item { WarningPanel(it.asFeedingString()) }
+            }
+            if (state.isLoadingFeeding && state.feedingPlans.isEmpty()) {
+                item { LoadingContent() }
+            } else if (state.feedingPlans.isEmpty()) {
+                item { EmptyPanel(stringResource(R.string.no_feeding_plans)) }
+            } else {
+                items(state.feedingPlans) { plan ->
+                    FeedingPlanCard(
+                        plan = plan,
+                        animalName = state.animals.firstOrNull { it.id == plan.animalId }?.name,
+                        changing = state.changingFeedingPlanId == plan.id,
+                        onEdit = { onShowEdit(plan) },
+                        onActivate = { onActivate(plan.id) },
+                        onDeactivate = { onDeactivate(plan.id) }
+                    )
+                }
+            }
+        }
+        if (state.showFeedingPlanForm) {
+            FeedingPlanDialog(
+                animals = state.animals,
+                form = state.feedingForm,
+                errors = state.feedingFormErrors,
+                isSaving = state.isSavingFeedingPlan,
+                actionError = state.feedingActionError,
+                editing = state.editingFeedingPlanId != null,
+                onFieldChange = onFormChange,
+                onSave = onSave,
+                onDismiss = onDismissForm
+            )
+        }
+    }
+}
+
+@Composable
+private fun FeedingAnimalFilter(
+    animals: List<AnimalSummary>,
+    selectedAnimalId: String?,
+    onSelect: (String?) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.filter_by_animal),
+            style = MaterialTheme.typography.labelLarge,
+            color = MutedInk,
+            fontWeight = FontWeight.Bold
+        )
+        LazyColumn(
+            modifier = Modifier.heightIn(max = 150.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                AssistChip(
+                    onClick = { onSelect(null) },
+                    label = { Text(stringResource(R.string.all_animals)) }
+                )
+            }
+            items(animals) { animal ->
+                AssistChip(
+                    onClick = { onSelect(animal.id) },
+                    label = {
+                        Text(
+                            text = animal.name.ifBlank { stringResource(R.string.unknown_animal) },
+                            fontWeight = if (selectedAnimalId == animal.id) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedingPlanCard(
+    plan: FeedingPlan,
+    animalName: String?,
+    changing: Boolean,
+    onEdit: () -> Unit,
+    onActivate: () -> Unit,
+    onDeactivate: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, Color(0xFFE9EFF5))
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = plan.dietType.name.ifBlank { stringResource(R.string.feeding_plan) },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = BlueDark,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = animalName ?: stringResource(R.string.animal_unavailable),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedInk
+                    )
+                }
+                StatusPill(text = plan.status.label(), critical = false)
+            }
+            DetailRow(stringResource(R.string.food_quantity), "${plan.foodAmount.quantity ?: 0.0} ${plan.foodAmount.unit}")
+            DetailRow(stringResource(R.string.times_per_day), plan.schedule.timesPerDay?.toString() ?: stringResource(R.string.not_available))
+            DetailRow(stringResource(R.string.scheduled_times), plan.schedule.scheduledTimes.ifBlank { stringResource(R.string.not_available) })
+            DetailRow(stringResource(R.string.tolerance_minutes), plan.schedule.toleranceMinutes?.toString() ?: stringResource(R.string.not_available))
+            plan.dietType.nutritionalNotes?.takeIf { it.isNotBlank() }?.let {
+                Text(text = it, style = MaterialTheme.typography.bodySmall, color = MutedInk)
+            }
+            if (changing) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = BluePrimary,
+                    trackColor = Color(0xFFDCEAF8)
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                BluePatitasOutlinedButton(
+                    text = stringResource(R.string.edit),
+                    onClick = onEdit,
+                    enabled = !changing,
+                    modifier = Modifier.weight(1f)
+                )
+                if (plan.status == FeedingPlanStatus.Active) {
+                    BluePatitasPrimaryButton(
+                        text = stringResource(R.string.deactivate),
+                        onClick = onDeactivate,
+                        enabled = !changing,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    BluePatitasPrimaryButton(
+                        text = stringResource(R.string.activate),
+                        onClick = onActivate,
+                        enabled = !changing,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedingPlanDialog(
+    animals: List<AnimalSummary>,
+    form: FeedingPlanFormUiState,
+    errors: Map<String, FeedingFieldError>,
+    isSaving: Boolean,
+    actionError: AnimalActionError?,
+    editing: Boolean,
+    onFieldChange: (String, String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = { if (!isSaving) onDismiss() }) {
+        Card(
+            modifier = Modifier.fillMaxWidth().heightIn(max = 680.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            LazyColumn(
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item {
+                    ScreenHeader(
+                        title = if (editing) stringResource(R.string.edit_feeding_plan) else stringResource(R.string.create_feeding_plan),
+                        subtitle = stringResource(R.string.feeding_form_subtitle)
+                    )
+                }
+                actionError?.let { item { WarningPanel(it.asFeedingString()) } }
+                if (animals.isEmpty()) {
+                    item { EmptyPanel(stringResource(R.string.no_animals_for_feeding)) }
+                } else if (editing) {
+                    item {
+                        DetailRow(
+                            label = stringResource(R.string.animal),
+                            value = animals.firstOrNull { it.id == form.animalId }?.name
+                                ?: stringResource(R.string.animal_unavailable)
+                        )
+                    }
+                } else {
+                    item {
+                        Text(
+                            text = stringResource(R.string.animal),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MutedInk,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    items(animals) { animal ->
+                        AssistChip(
+                            onClick = { onFieldChange("animalId", animal.id) },
+                            label = {
+                                Text(
+                                    text = animal.name.ifBlank { stringResource(R.string.unknown_animal) },
+                                    fontWeight = if (form.animalId == animal.id) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        )
+                    }
+                    item { formErrorText(errors["animalId"]) }
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.dietName,
+                        onValueChange = { onFieldChange("dietName", it) },
+                        label = stringResource(R.string.diet_name),
+                        error = errors["dietName"]?.asString()
+                    )
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.nutritionalNotes,
+                        onValueChange = { onFieldChange("nutritionalNotes", it) },
+                        label = stringResource(R.string.nutritional_notes),
+                        singleLine = false
+                    )
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        BluePatitasTextField(
+                            value = form.foodQuantity,
+                            onValueChange = { onFieldChange("foodQuantity", it) },
+                            label = stringResource(R.string.food_quantity),
+                            error = errors["foodQuantity"]?.asString(),
+                            keyboardType = KeyboardType.Decimal,
+                            modifier = Modifier.weight(1f)
+                        )
+                        BluePatitasTextField(
+                            value = form.foodUnit,
+                            onValueChange = { onFieldChange("foodUnit", it) },
+                            label = stringResource(R.string.food_unit),
+                            error = errors["foodUnit"]?.asString(),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        BluePatitasTextField(
+                            value = form.timesPerDay,
+                            onValueChange = { onFieldChange("timesPerDay", it) },
+                            label = stringResource(R.string.times_per_day),
+                            error = errors["timesPerDay"]?.asString(),
+                            keyboardType = KeyboardType.Number,
+                            modifier = Modifier.weight(1f)
+                        )
+                        BluePatitasTextField(
+                            value = form.toleranceMinutes,
+                            onValueChange = { onFieldChange("toleranceMinutes", it) },
+                            label = stringResource(R.string.tolerance_minutes),
+                            error = errors["toleranceMinutes"]?.asString(),
+                            keyboardType = KeyboardType.Number,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                item {
+                    BluePatitasTextField(
+                        value = form.scheduledTimes,
+                        onValueChange = { onFieldChange("scheduledTimes", it) },
+                        label = stringResource(R.string.scheduled_times),
+                        error = errors["scheduledTimes"]?.asString()
+                    )
+                }
+                if (isSaving) {
+                    item {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = BluePrimary,
+                            trackColor = Color(0xFFDCEAF8)
+                        )
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        BluePatitasOutlinedButton(
+                            text = stringResource(R.string.cancel),
+                            onClick = { if (!isSaving) onDismiss() },
+                            modifier = Modifier.weight(1f)
+                        )
+                        BluePatitasPrimaryButton(
+                            text = stringResource(R.string.save),
+                            onClick = onSave,
+                            enabled = !isSaving && animals.isNotEmpty(),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun AnimalsContent(
     title: String,
     subtitle: String,
@@ -419,6 +873,27 @@ private fun AnimalsContent(
     onAssignAnimalToZone: () -> Unit,
     onRemoveAnimalZone: () -> Unit,
     onDismissZoneAssignedMessage: () -> Unit,
+    onShowManageFeeding: () -> Unit,
+    onHideManageFeeding: () -> Unit,
+    onRefreshSelectedAnimalFeeding: () -> Unit,
+    onShowCreateFeedingPlanForAnimal: (String) -> Unit,
+    onShowEditFeedingPlan: (FeedingPlan) -> Unit,
+    onDismissFeedingPlanForm: () -> Unit,
+    onFeedingFormChange: (String, String) -> Unit,
+    onSaveFeedingPlan: () -> Unit,
+    onActivateFeedingPlan: (String) -> Unit,
+    onDeactivateFeedingPlan: (String) -> Unit,
+    onDismissFeedingSuccess: () -> Unit,
+    onRefreshEdgeGateway: () -> Unit,
+    onForceDispense: () -> Unit,
+    onUpdateDispenserInterval: (String) -> Unit,
+    onConfigureDispenserSchedule: (Boolean) -> Unit,
+    onShowEdgeGatewaySettings: () -> Unit,
+    onHideEdgeGatewaySettings: () -> Unit,
+    onUpdateEdgeGatewayUrlInput: (String) -> Unit,
+    onSaveEdgeGatewayUrl: () -> Unit,
+    onResetEdgeGatewayUrl: () -> Unit,
+    onTestEdgeGateway: () -> Unit,
     onCloseAnimalDetail: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -489,6 +964,9 @@ private fun AnimalsContent(
                 isAssigningZone = state.isAssigningAnimalZone,
                 zoneAssignmentError = state.animalZoneAssignmentError,
                 zoneAssignedMessageVisible = state.animalZoneAssignedMessageVisible,
+                feedingPlans = state.selectedAnimalFeedingPlans,
+                isLoadingFeeding = state.isLoadingSelectedAnimalFeeding,
+                feedingError = state.selectedAnimalFeedingError,
                 onRetry = onRetryAnimalDetail,
                 onShowHealthEditor = onShowHealthEditor,
                 onHideHealthEditor = onHideHealthEditor,
@@ -501,7 +979,68 @@ private fun AnimalsContent(
                 onAssignAnimalToZone = onAssignAnimalToZone,
                 onRemoveAnimalZone = onRemoveAnimalZone,
                 onDismissZoneAssignedMessage = onDismissZoneAssignedMessage,
+                onShowManageFeeding = onShowManageFeeding,
                 onDismiss = onCloseAnimalDetail
+            )
+        }
+        if (state.showManageFeedingDialog && state.selectedAnimalDetail != null) {
+            ManageFeedingDialog(
+                animal = state.selectedAnimalDetail,
+                feedingPlans = state.selectedAnimalFeedingPlans,
+                isLoadingFeeding = state.isLoadingSelectedAnimalFeeding,
+                feedingError = state.selectedAnimalFeedingError,
+                feedingSuccessVisible = state.feedingSuccessMessageVisible,
+                changingPlanId = state.changingFeedingPlanId,
+                edgeGatewayUrl = state.edgeGatewayUrl,
+                edgeSimulatorStatus = state.edgeSimulatorStatus,
+                dispenserStatus = state.dispenserStatus,
+                dispenserSchedule = state.dispenserSchedule,
+                dispenserIntervalInput = state.dispenserIntervalInput,
+                isRefreshingEdge = state.isRefreshingEdgeGateway,
+                edgeError = state.edgeGatewayError,
+                edgeMessageVisible = state.edgeGatewayMessageVisible,
+                isForcingDispense = state.isForcingDispense,
+                isUpdatingSchedule = state.isUpdatingDispenserSchedule,
+                onRefreshFeeding = onRefreshSelectedAnimalFeeding,
+                onCreatePlan = { onShowCreateFeedingPlanForAnimal(state.selectedAnimalDetail.id) },
+                onEditPlan = onShowEditFeedingPlan,
+                onActivate = onActivateFeedingPlan,
+                onDeactivate = onDeactivateFeedingPlan,
+                onDismissFeedingSuccess = onDismissFeedingSuccess,
+                onRefreshEdge = onRefreshEdgeGateway,
+                onForceDispense = onForceDispense,
+                onIntervalChange = onUpdateDispenserInterval,
+                onConfigureSchedule = onConfigureDispenserSchedule,
+                onConfigureGateway = onShowEdgeGatewaySettings,
+                onDismiss = onHideManageFeeding
+            )
+        }
+        if (state.showFeedingPlanForm) {
+            FeedingPlanDialog(
+                animals = state.selectedAnimalDetail?.let { listOf(it) } ?: state.animals,
+                form = state.feedingForm,
+                errors = state.feedingFormErrors,
+                isSaving = state.isSavingFeedingPlan,
+                actionError = state.feedingActionError,
+                editing = state.editingFeedingPlanId != null,
+                onFieldChange = onFeedingFormChange,
+                onSave = onSaveFeedingPlan,
+                onDismiss = onDismissFeedingPlanForm
+            )
+        }
+        if (state.showEdgeGatewaySettingsDialog) {
+            EdgeGatewaySettingsDialog(
+                url = state.edgeGatewayUrlInput,
+                simulatorStatus = state.edgeSimulatorStatus,
+                isTesting = state.isTestingEdgeGateway,
+                isSaving = state.isSavingEdgeGatewayUrl,
+                error = state.edgeGatewayError,
+                messageVisible = state.edgeGatewayMessageVisible,
+                onUrlChange = onUpdateEdgeGatewayUrlInput,
+                onTest = onTestEdgeGateway,
+                onSave = onSaveEdgeGatewayUrl,
+                onReset = onResetEdgeGatewayUrl,
+                onDismiss = onHideEdgeGatewaySettings
             )
         }
     }
@@ -999,6 +1538,9 @@ private fun AnimalDetailDialog(
     isAssigningZone: Boolean,
     zoneAssignmentError: AnimalActionError?,
     zoneAssignedMessageVisible: Boolean,
+    feedingPlans: List<FeedingPlan>,
+    isLoadingFeeding: Boolean,
+    feedingError: AnimalActionError?,
     onRetry: () -> Unit,
     onShowHealthEditor: () -> Unit,
     onHideHealthEditor: () -> Unit,
@@ -1011,6 +1553,7 @@ private fun AnimalDetailDialog(
     onAssignAnimalToZone: () -> Unit,
     onRemoveAnimalZone: () -> Unit,
     onDismissZoneAssignedMessage: () -> Unit,
+    onShowManageFeeding: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val assignedZone = animal.assignedPerimeterId?.let { perimeterId ->
@@ -1123,6 +1666,14 @@ private fun AnimalDetailDialog(
                             onRemove = onRemoveAnimalZone
                         )
                     }
+                    item {
+                        AnimalFeedingSummaryCard(
+                            feedingPlans = feedingPlans,
+                            isLoading = isLoadingFeeding,
+                            error = feedingError,
+                            onManage = onShowManageFeeding
+                        )
+                    }
                 }
                 item {
                     BluePatitasOutlinedButton(text = stringResource(R.string.close), onClick = onDismiss)
@@ -1219,6 +1770,350 @@ private fun ZoneAssignmentSection(
                     text = if (hasAssignedZone) stringResource(R.string.change_zone) else stringResource(R.string.assign_zone),
                     onClick = onShowEditor
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnimalFeedingSummaryCard(
+    feedingPlans: List<FeedingPlan>,
+    isLoading: Boolean,
+    error: AnimalActionError?,
+    onManage: () -> Unit
+) {
+    val activePlan = feedingPlans.firstOrNull { it.status == FeedingPlanStatus.Active } ?: feedingPlans.firstOrNull()
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFF7FAFD),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFFE3F0FF))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.feeding_diet),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.titleSmall,
+                color = BlueDark,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = when {
+                    isLoading -> stringResource(R.string.loading)
+                    activePlan != null -> activePlan.dietType.name.ifBlank { stringResource(R.string.feeding_plan) }
+                    else -> stringResource(R.string.no_feeding_plan_for_animal)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MutedInk
+            )
+            BluePatitasOutlinedButton(
+                text = stringResource(R.string.manage_feeding),
+                onClick = onManage
+            )
+            if (isLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = BluePrimary,
+                    trackColor = Color(0xFFDCEAF8)
+                )
+            }
+            error?.let { WarningPanel(it.asFeedingString()) }
+            activePlan?.let {
+                DetailRow(stringResource(R.string.portion), it.foodAmount.displayText())
+                DetailRow(stringResource(R.string.daily_frequency), it.schedule.timesPerDay?.toString() ?: stringResource(R.string.not_available))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ManageFeedingDialog(
+    animal: AnimalSummary,
+    feedingPlans: List<FeedingPlan>,
+    isLoadingFeeding: Boolean,
+    feedingError: AnimalActionError?,
+    feedingSuccessVisible: Boolean,
+    changingPlanId: String?,
+    edgeGatewayUrl: String,
+    edgeSimulatorStatus: EdgeSimulatorStatus?,
+    dispenserStatus: DispenserStatus?,
+    dispenserSchedule: DispenserSchedule?,
+    dispenserIntervalInput: String,
+    isRefreshingEdge: Boolean,
+    edgeError: AnimalActionError?,
+    edgeMessageVisible: Boolean,
+    isForcingDispense: Boolean,
+    isUpdatingSchedule: Boolean,
+    onRefreshFeeding: () -> Unit,
+    onCreatePlan: () -> Unit,
+    onEditPlan: (FeedingPlan) -> Unit,
+    onActivate: (String) -> Unit,
+    onDeactivate: (String) -> Unit,
+    onDismissFeedingSuccess: () -> Unit,
+    onRefreshEdge: () -> Unit,
+    onForceDispense: () -> Unit,
+    onIntervalChange: (String) -> Unit,
+    onConfigureSchedule: (Boolean) -> Unit,
+    onConfigureGateway: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val activePlan = feedingPlans.firstOrNull { it.status == FeedingPlanStatus.Active } ?: feedingPlans.firstOrNull()
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth().heightIn(max = 700.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            LazyColumn(
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item {
+                    ScreenHeader(
+                        title = stringResource(R.string.manage_feeding),
+                        subtitle = animal.name.ifBlank { stringResource(R.string.unknown_animal) }
+                    )
+                }
+                if (feedingSuccessVisible) {
+                    item {
+                        SuccessPanel(
+                            text = stringResource(R.string.feeding_plan_saved),
+                            onDismiss = onDismissFeedingSuccess
+                        )
+                    }
+                }
+                feedingError?.let { item { WarningPanel(it.asFeedingString()) } }
+                item {
+                    SectionTitle(stringResource(R.string.diet_plan))
+                    if (isLoadingFeeding) {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = BluePrimary,
+                            trackColor = Color(0xFFDCEAF8)
+                        )
+                    } else if (activePlan == null) {
+                        EmptyPanel(stringResource(R.string.no_feeding_plan_for_animal))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        BluePatitasPrimaryButton(
+                            text = stringResource(R.string.create_feeding_plan),
+                            onClick = onCreatePlan
+                        )
+                    } else {
+                        FeedingPlanCard(
+                            plan = activePlan,
+                            animalName = animal.name,
+                            changing = changingPlanId == activePlan.id,
+                            onEdit = { onEditPlan(activePlan) },
+                            onActivate = { onActivate(activePlan.id) },
+                            onDeactivate = { onDeactivate(activePlan.id) }
+                        )
+                        BluePatitasOutlinedButton(
+                            text = stringResource(R.string.refresh),
+                            onClick = onRefreshFeeding
+                        )
+                    }
+                }
+                item {
+                    SectionTitle(stringResource(R.string.iot_dispenser))
+                    EdgeStatusPanel(
+                        edgeGatewayUrl = edgeGatewayUrl,
+                        simulatorStatus = edgeSimulatorStatus,
+                        dispenserStatus = dispenserStatus,
+                        schedule = dispenserSchedule,
+                        isRefreshing = isRefreshingEdge,
+                        error = edgeError,
+                        messageVisible = edgeMessageVisible,
+                        onRefresh = onRefreshEdge,
+                        onConfigureGateway = onConfigureGateway
+                    )
+                }
+                item {
+                    BluePatitasTextField(
+                        value = dispenserIntervalInput,
+                        onValueChange = onIntervalChange,
+                        label = stringResource(R.string.dispenser_interval)
+                    )
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        BluePatitasOutlinedButton(
+                            text = stringResource(R.string.manual_dispense),
+                            onClick = onForceDispense,
+                            enabled = !isForcingDispense,
+                            modifier = Modifier.weight(1f)
+                        )
+                        BluePatitasPrimaryButton(
+                            text = if (dispenserSchedule?.active == true) {
+                                stringResource(R.string.disable_schedule)
+                            } else {
+                                stringResource(R.string.enable_schedule)
+                            },
+                            onClick = { onConfigureSchedule(dispenserSchedule?.active != true) },
+                            enabled = !isUpdatingSchedule,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                item {
+                    BluePatitasOutlinedButton(text = stringResource(R.string.close), onClick = onDismiss)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EdgeStatusPanel(
+    edgeGatewayUrl: String,
+    simulatorStatus: EdgeSimulatorStatus?,
+    dispenserStatus: DispenserStatus?,
+    schedule: DispenserSchedule?,
+    isRefreshing: Boolean,
+    error: AnimalActionError?,
+    messageVisible: Boolean,
+    onRefresh: () -> Unit,
+    onConfigureGateway: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFF2F8FF),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFFDCEAF8))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            DetailRow(stringResource(R.string.edge_gateway), edgeGatewayUrl)
+            DetailRow(
+                stringResource(R.string.status),
+                if (simulatorStatus != null) stringResource(R.string.online) else stringResource(R.string.offline)
+            )
+            simulatorStatus?.let {
+                DetailRow(stringResource(R.string.coordinates), it.coordinatesLabel())
+            }
+            DetailRow(
+                stringResource(R.string.dispenser_status),
+                if (dispenserStatus?.active == true) stringResource(R.string.active) else stringResource(R.string.inactive)
+            )
+            DetailRow(
+                stringResource(R.string.schedule_status),
+                if (schedule?.active == true) stringResource(R.string.active) else stringResource(R.string.inactive)
+            )
+            if (isRefreshing) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = BluePrimary,
+                    trackColor = Color(0xFFDCEAF8)
+                )
+            }
+            if (messageVisible) {
+                Text(
+                    text = stringResource(R.string.edge_action_success),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GreenSuccess,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            error?.let { WarningPanel(it.asEdgeString()) }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                BluePatitasOutlinedButton(
+                    text = stringResource(R.string.refresh),
+                    onClick = onRefresh,
+                    modifier = Modifier.weight(1f)
+                )
+                BluePatitasOutlinedButton(
+                    text = stringResource(R.string.configure_edge_gateway),
+                    onClick = onConfigureGateway,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EdgeGatewaySettingsDialog(
+    url: String,
+    simulatorStatus: EdgeSimulatorStatus?,
+    isTesting: Boolean,
+    isSaving: Boolean,
+    error: AnimalActionError?,
+    messageVisible: Boolean,
+    onUrlChange: (String) -> Unit,
+    onTest: () -> Unit,
+    onSave: () -> Unit,
+    onReset: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                ScreenHeader(
+                    title = stringResource(R.string.edge_gateway),
+                    subtitle = stringResource(R.string.edge_gateway_description)
+                )
+                BluePatitasTextField(
+                    value = url,
+                    onValueChange = onUrlChange,
+                    label = stringResource(R.string.edge_gateway_url)
+                )
+                Text(
+                    text = stringResource(R.string.edge_gateway_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedInk
+                )
+                simulatorStatus?.let {
+                    DetailRow(stringResource(R.string.status), stringResource(R.string.online))
+                    DetailRow(stringResource(R.string.coordinates), it.coordinatesLabel())
+                }
+                if (messageVisible) {
+                    Text(
+                        text = stringResource(R.string.gateway_url_saved),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GreenSuccess,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                error?.let { WarningPanel(it.asEdgeString()) }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BluePatitasOutlinedButton(
+                        text = stringResource(R.string.test_connection),
+                        onClick = onTest,
+                        enabled = !isTesting && !isSaving,
+                        modifier = Modifier.weight(1f)
+                    )
+                    BluePatitasPrimaryButton(
+                        text = stringResource(R.string.save),
+                        onClick = onSave,
+                        enabled = !isTesting && !isSaving,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BluePatitasOutlinedButton(
+                        text = stringResource(R.string.reset_default),
+                        onClick = onReset,
+                        enabled = !isTesting && !isSaving,
+                        modifier = Modifier.weight(1f)
+                    )
+                    BluePatitasOutlinedButton(
+                        text = stringResource(R.string.close),
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
@@ -1673,12 +2568,81 @@ private fun AnimalActionError.asMonitoringString(): String =
     }
 
 @Composable
+private fun AnimalActionError.asFeedingString(): String =
+    when (this) {
+        AnimalActionError.BadRequest -> stringResource(R.string.feeding_error_bad_request)
+        AnimalActionError.SessionExpired -> stringResource(R.string.auth_error_session_expired)
+        AnimalActionError.EndpointNotFound -> stringResource(R.string.feeding_error_not_found)
+        AnimalActionError.ServerError -> stringResource(R.string.feeding_error_server)
+        AnimalActionError.Timeout,
+        AnimalActionError.Network -> stringResource(R.string.feeding_error_network)
+        AnimalActionError.ResponseFormat -> stringResource(R.string.auth_error_response_format)
+        AnimalActionError.InvalidImageUpload -> stringResource(R.string.animal_image_upload_error)
+        AnimalActionError.Unknown -> stringResource(R.string.connection_error)
+    }
+
+@Composable
+private fun AnimalActionError.asEdgeString(): String =
+    when (this) {
+        AnimalActionError.BadRequest -> stringResource(R.string.edge_error_bad_request)
+        AnimalActionError.SessionExpired -> stringResource(R.string.auth_error_session_expired)
+        AnimalActionError.EndpointNotFound -> stringResource(R.string.edge_error_not_found)
+        AnimalActionError.ServerError -> stringResource(R.string.edge_error_server)
+        AnimalActionError.Timeout,
+        AnimalActionError.Network -> stringResource(R.string.edge_error_network)
+        AnimalActionError.ResponseFormat -> stringResource(R.string.auth_error_response_format)
+        AnimalActionError.InvalidImageUpload -> stringResource(R.string.animal_image_upload_error)
+        AnimalActionError.Unknown -> stringResource(R.string.edge_error_network)
+    }
+
+@Composable
 private fun MonitoringFieldError.asString(): String =
     when (this) {
         MonitoringFieldError.Required -> stringResource(R.string.required_field)
         MonitoringFieldError.InvalidNumber -> stringResource(R.string.monitoring_number_error)
         MonitoringFieldError.InvalidCount -> stringResource(R.string.monitoring_count_error)
         MonitoringFieldError.InvalidRange -> stringResource(R.string.monitoring_temperature_range_error)
+    }
+
+@Composable
+private fun FeedingFieldError.asString(): String =
+    when (this) {
+        FeedingFieldError.Required -> stringResource(R.string.required_field)
+        FeedingFieldError.InvalidNumber -> stringResource(R.string.feeding_number_error)
+        FeedingFieldError.InvalidCount -> stringResource(R.string.feeding_count_error)
+    }
+
+@Composable
+private fun formErrorText(error: FeedingFieldError?) {
+    error?.let {
+        Text(
+            text = it.asString(),
+            style = MaterialTheme.typography.bodySmall,
+            color = RedCritical
+        )
+    }
+}
+
+@Composable
+private fun FeedingPlanStatus.label(): String =
+    when (this) {
+        FeedingPlanStatus.Draft -> stringResource(R.string.feeding_status_draft)
+        FeedingPlanStatus.Active -> stringResource(R.string.feeding_status_active)
+        FeedingPlanStatus.Inactive -> stringResource(R.string.feeding_status_inactive)
+        FeedingPlanStatus.Unknown -> stringResource(R.string.not_available)
+    }
+
+private fun FoodAmount.displayText(): String =
+    listOfNotNull(
+        quantity?.let { "%s".format(it) },
+        unit.takeIf { it.isNotBlank() }
+    ).joinToString(" ").ifBlank { "-" }
+
+private fun EdgeSimulatorStatus.coordinatesLabel(): String =
+    if (latitude != null && longitude != null) {
+        "%.5f, %.5f".format(latitude, longitude)
+    } else {
+        "-"
     }
 
 @Composable
